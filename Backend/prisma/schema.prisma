@@ -1,0 +1,707 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+//////////////////////////////////////@@ ENUMS COMPLETS @@///////////////////////////////////////
+
+enum Role {
+  ADMIN
+  PROPRIETAIRE
+  VETERINAIRE
+  EMPLOYE
+}
+
+enum UserStatus {
+  ACTIF
+  INACTIF
+  SUSPENDU
+}
+
+enum StatutAnimal {
+  ACTIF
+  VENDU
+  MORT
+  ABATTU
+  MALADE
+  EN_GESTATION
+}
+
+enum TypeVente {
+  ANIMAL
+  PRODUIT
+  EQUIPEMENT
+}
+
+enum StatutReproduction {
+  EN_CHALEUR
+  INSEMINATION
+  GESTATION
+  VELAGE
+  SEVRAGE
+}
+
+enum PrioriteAlerte {
+  BASSE
+  MOYENNE
+  HAUTE
+  CRITIQUE
+}
+
+//////////////////////////////////////@@ UTILISATEURS @@///////////////////////////////////////
+
+model Utilisateurs {
+  id_user       Int        @id @default(autoincrement())
+  nom           String
+  email         String     @unique
+  mot_de_passe  String
+  role          Role       @default(EMPLOYE)
+  telephone     String?
+  date_creation DateTime   @default(now())
+  statut        UserStatus @default(ACTIF)
+
+  fermes_proprietaire Fermes[]            @relation("ProprietaireFerme")
+  sessions            Sessions[]
+  preferences         Preferences?
+  notifications       Notifications[]
+  exports             Exports[]
+  sante               Sante[]
+  production          Production[]
+  historique_actions  HistoriqueActions[] @relation("UserActions")
+
+  @@map("utilisateurs")
+}
+
+//////////////////////////////////////@@ FERMES @@///////////////////////////////////////
+
+model Fermes {
+  id_ferme        Int      @id @default(autoincrement())
+  nom             String
+  adresse         String?
+  proprietaire_id Int?
+  date_creation   DateTime @default(now())
+
+  proprietaire Utilisateurs? @relation("ProprietaireFerme", fields: [proprietaire_id], references: [id_user])
+
+  lots             Lots[]
+  animaux          Animaux[]
+  ventes           Ventes[]
+  transactions     Transactions[]
+  equipements      Equipements[]
+  alertes          Alertes[]
+  parametres       ParametresFerme[]
+  rapports         Rapports[]
+  stock_produits   StockProduits[]
+  enclos           Enclos[]
+  rations          Rations[]
+  modeles_alertes  ModelesAlertes[]
+  modeles_rapports ModelesRapports[]
+
+  productions       Production[]        @relation("FermeProductions")
+  couts             Couts[]             @relation("FermeCouts")
+  historiqueActions HistoriqueActions[] @relation("FermeActions")
+
+  @@map("fermes")
+}
+
+//////////////////////////////////////@@ LOTS @@///////////////////////////////////////
+
+model Lots {
+  id_lot      Int       @id @default(autoincrement())
+  ferme_id    Int
+  espece      String?
+  categorie   String?
+  tranche_age String?
+  quantite    Int?
+  date_entree DateTime?
+  statut      String?   @default("Actif")
+
+  ferme                    Fermes                     @relation(fields: [ferme_id], references: [id_ferme])
+  animaux                  Animaux[]
+  production               Production[]
+  alimentation             Alimentation[]
+  historiques_alimentation Historiques_alimentation[]
+  planning_alimentation    PlanningAlimentation[]
+  couts                    Couts[]
+  rentabilite              Rentabilite[]
+
+  @@map("lots")
+}
+
+//////////////////////////////////////@@ ANIMAUX @@///////////////////////////////////////
+
+model Animaux {
+  id_animal             Int          @id @default(autoincrement())
+  ferme_id              Int
+  lot_id                Int?
+  numero_identification String?      @unique
+  espece                String
+  race                  String?
+  sexe                  String?
+  date_naissance        DateTime?
+  poids_actuel          Float?
+  statut                StatutAnimal @default(ACTIF)
+  mere_id               Int?
+  pere_id               Int?
+
+  ferme                    Fermes                     @relation(fields: [ferme_id], references: [id_ferme])
+  lot                      Lots?                      @relation(fields: [lot_id], references: [id_lot])
+  sante                    Sante[]
+  production               Production[]
+  reproduction             Reproduction[]
+  naissances               Naissances[]
+  suivi_poids              SuiviPoids[]
+  localisations            LocalisationAnimaux[]
+  details_vente            DetailsVente[]
+  performances             Performances[]
+  cycle_reproduction       CycleReproduction[]
+  couts                    Couts[]
+  rentabilite              Rentabilite[]
+  mouvements               Mouvements[]
+  historiquesAlimentations Historiques_alimentation[]
+
+  @@map("animaux")
+}
+
+//////////////////////////////////////@@ SANTÉ @@///////////////////////////////////////
+
+model Sante {
+  id_sante       Int       @id @default(autoincrement())
+  animal_id      Int
+  type           String
+  description    String
+  diagnostic     String?
+  traitement     String?
+  date_debut     DateTime
+  date_fin       DateTime?
+  statut         String    @default("en_cours")
+  veterinaire_id Int?
+  cout           Float?
+
+  animal      Animaux       @relation(fields: [animal_id], references: [id_animal])
+  veterinaire Utilisateurs? @relation(fields: [veterinaire_id], references: [id_user])
+
+  @@map("sante")
+}
+
+//////////////////////////////////////@@ REPRODUCTION @@///////////////////////////////////////
+
+model Reproduction {
+  id_reproduction   Int                @id @default(autoincrement())
+  animal_id         Int
+  male_id           Int?
+  type_reproduction String
+  date_saillie      DateTime?
+  date_diagnostic   DateTime?
+  date_velage_prevu DateTime?
+  date_velage_reel  DateTime?
+  statut            StatutReproduction
+  notes             String?
+
+  animal     Animaux      @relation(fields: [animal_id], references: [id_animal])
+  naissances Naissances[]
+
+  @@map("reproduction")
+}
+
+model Naissances {
+  id_naissance    Int     @id @default(autoincrement())
+  reproduction_id Int
+  animal_id       Int
+  poids_naissance Float?
+  statut          String  @default("vivant")
+  notes           String?
+
+  reproduction Reproduction @relation(fields: [reproduction_id], references: [id_reproduction])
+  animal       Animaux      @relation(fields: [animal_id], references: [id_animal])
+
+  @@map("naissances")
+}
+
+//////////////////////////////////////@@ CYCLE REPRODUCTION @@///////////////////////////////////////
+
+model CycleReproduction {
+  id_cycle          Int       @id @default(autoincrement())
+  animal_id         Int
+  date_chaleur      DateTime?
+  date_insemination DateTime?
+  date_gestation    DateTime?
+  date_velage_prevu DateTime?
+  statut_cycle      String
+  notes             String?
+
+  animal Animaux @relation(fields: [animal_id], references: [id_animal])
+
+  @@map("cycle_reproduction")
+}
+
+//////////////////////////////////////@@ PRODUCTION @@///////////////////////////////////////
+
+model Production {
+  id              Int       @id @default(autoincrement())
+  ferme_id        Int?
+  animal_id       Int?
+  lot_id          Int?
+  type_production String?
+  quantite        Float?
+  unite           String?
+  date_collecte   DateTime?
+  operateur_id    Int?
+
+  ferme     Fermes?       @relation("FermeProductions", fields: [ferme_id], references: [id_ferme])
+  animal    Animaux?      @relation(fields: [animal_id], references: [id_animal])
+  lot       Lots?         @relation(fields: [lot_id], references: [id_lot])
+  operateur Utilisateurs? @relation(fields: [operateur_id], references: [id_user])
+
+  @@map("production")
+}
+
+//////////////////////////////////////@@ PERFORMANCES @@///////////////////////////////////////
+
+model Performances {
+  id_performance   Int      @id @default(autoincrement())
+  animal_id        Int
+  type_performance String
+  valeur           Float
+  date_mesure      DateTime @default(now())
+  notes            String?
+
+  animal Animaux @relation(fields: [animal_id], references: [id_animal])
+
+  @@map("performances")
+}
+
+//////////////////////////////////////@@ SUIVI CROISSANCE @@///////////////////////////////////////
+
+model SuiviPoids {
+  id_suivi    Int      @id @default(autoincrement())
+  animal_id   Int
+  poids       Float
+  date_mesure DateTime @default(now())
+  notes       String?
+
+  animal Animaux @relation(fields: [animal_id], references: [id_animal])
+
+  @@map("suivi_poids")
+}
+
+//////////////////////////////////////@@ ALIMENTATION - STOCK @@///////////////////////////////////////
+
+model Alimentation {
+  id_aliment     Int       @id @default(autoincrement())
+  type_aliment   String
+  quantite_stock Float
+  unite          String    @default("kg")
+  date_entree    DateTime
+  date_sortie    DateTime?
+  lot_id         Int?
+
+  lot                      Lots?                      @relation(fields: [lot_id], references: [id_lot])
+  historiques_alimentation Historiques_alimentation[] @relation("AlimentationHistoriques")
+
+  @@map("alimentation")
+}
+
+model Historiques_alimentation {
+  id              Int      @id @default(autoincrement())
+  alimentation_id Int?
+  animal_id       Int?
+  lot_id          Int?
+  type_aliment    String
+  quantite        Float
+  date            DateTime
+
+  alimentation Alimentation? @relation("AlimentationHistoriques", fields: [alimentation_id], references: [id_aliment])
+  animal       Animaux?      @relation(fields: [animal_id], references: [id_animal])
+  lot          Lots?         @relation(fields: [lot_id], references: [id_lot])
+
+  @@map("historiques_alimentation")
+}
+
+//////////////////////////////////////@@ ALIMENTATION - RATIONS @@///////////////////////////////////////
+
+model Rations {
+  id_ration   Int     @id @default(autoincrement())
+  ferme_id    Int
+  nom_ration  String
+  type_animal String
+  composition Json
+  cout_kg     Float?
+  est_actif   Boolean @default(true)
+
+  ferme                 Fermes                 @relation(fields: [ferme_id], references: [id_ferme])
+  planning_alimentation PlanningAlimentation[]
+
+  @@map("rations")
+}
+
+model PlanningAlimentation {
+  id_planning   Int       @id @default(autoincrement())
+  lot_id        Int?
+  ration_id     Int?
+  date_debut    DateTime
+  date_fin      DateTime?
+  quantite_jour Float
+  frequence     String
+
+  lot    Lots?    @relation(fields: [lot_id], references: [id_lot])
+  ration Rations? @relation(fields: [ration_id], references: [id_ration])
+
+  @@map("planning_alimentation")
+}
+
+//////////////////////////////////////@@ TRANSACTIONS @@///////////////////////////////////////
+model Transactions {
+  id_tx          Int      @id @default(autoincrement())
+  ferme_id       Int
+  type           String
+  categorie      String
+  montant        Float
+  date           DateTime @default(now())
+  description    String?
+  reference_type String?
+  reference_id   Int?
+  details        Json?
+  vente_id       Int?
+
+  ferme Fermes  @relation(fields: [ferme_id], references: [id_ferme])
+  vente Ventes? @relation("VenteTransactions", fields: [vente_id], references: [id_vente])
+
+  @@map("transactions")
+}
+
+//////////////////////////////////////@@ ventes @@///////////////////////////////////////
+model Ventes {
+  id_vente      Int       @id @default(autoincrement())
+  ferme_id      Int
+  type_vente    TypeVente
+  date_vente    DateTime  @default(now())
+  client        String?
+  montant_total Float
+  statut        String    @default("complet")
+  notes         String?
+
+  ferme         Fermes         @relation(fields: [ferme_id], references: [id_ferme])
+  details_vente DetailsVente[]
+  transactions  Transactions[] @relation("VenteTransactions")
+
+  @@map("ventes")
+}
+
+model DetailsVente {
+  id_detail     Int     @id @default(autoincrement())
+  vente_id      Int
+  animal_id     Int?
+  type_produit  String?
+  description   String
+  quantite      Float
+  prix_unitaire Float
+  montant_total Float
+
+  vente  Ventes   @relation(fields: [vente_id], references: [id_vente])
+  animal Animaux? @relation(fields: [animal_id], references: [id_animal])
+
+  @@map("details_vente")
+}
+
+//////////////////////////////////////@@ ANALYSE ÉCONOMIQUE @@///////////////////////////////////////
+
+model Couts {
+  id_cout     Int      @id @default(autoincrement())
+  ferme_id    Int
+  type_cout   String
+  description String
+  montant     Float
+  date_cout   DateTime @default(now())
+  animal_id   Int?
+  lot_id      Int?
+
+  ferme  Fermes   @relation("FermeCouts", fields: [ferme_id], references: [id_ferme])
+  animal Animaux? @relation(fields: [animal_id], references: [id_animal])
+  lot    Lots?    @relation(fields: [lot_id], references: [id_lot])
+
+  @@map("couts")
+}
+
+model Rentabilite {
+  id_rentabilite Int      @id @default(autoincrement())
+  animal_id      Int?
+  lot_id         Int?
+  periode_debut  DateTime
+  periode_fin    DateTime
+  total_ventes   Float
+  total_couts    Float
+  benefice       Float
+  notes          String?
+
+  animal Animaux? @relation(fields: [animal_id], references: [id_animal])
+  lot    Lots?    @relation(fields: [lot_id], references: [id_lot])
+
+  @@map("rentabilite")
+}
+
+//////////////////////////////////////@@ ÉQUIPEMENTS @@///////////////////////////////////////
+
+model Equipements {
+  id_equipement             Int       @id @default(autoincrement())
+  ferme_id                  Int
+  nom                       String
+  type_equipement           String
+  date_acquisition          DateTime?
+  prix_acquisition          Float?
+  etat                      String    @default("bon")
+  date_derniere_maintenance DateTime?
+  prochaine_maintenance     DateTime?
+  notes                     String?
+
+  ferme       Fermes        @relation(fields: [ferme_id], references: [id_ferme])
+  maintenance Maintenance[]
+
+  @@map("equipements")
+}
+
+model Maintenance {
+  id_maintenance        Int       @id @default(autoincrement())
+  equipement_id         Int
+  type_maintenance      String
+  date_maintenance      DateTime  @default(now())
+  description           String
+  cout                  Float?
+  technicien            String?
+  prochaine_maintenance DateTime?
+  notes                 String?
+
+  equipement Equipements @relation(fields: [equipement_id], references: [id_equipement])
+
+  @@map("maintenance")
+}
+
+//////////////////////////////////////@@ LOCALISATION @@///////////////////////////////////////
+
+model Enclos {
+  id_enclos   Int     @id @default(autoincrement())
+  ferme_id    Int
+  nom         String
+  type        String
+  capacite    Int?
+  superficie  Float?
+  description String?
+  statut      String  @default("actif")
+
+  ferme         Fermes                @relation(fields: [ferme_id], references: [id_ferme])
+  localisations LocalisationAnimaux[]
+
+  @@map("enclos")
+}
+
+model LocalisationAnimaux {
+  id_localisation Int       @id @default(autoincrement())
+  animal_id       Int
+  enclos_id       Int
+  date_entree     DateTime  @default(now())
+  date_sortie     DateTime?
+  raison          String?
+
+  animal Animaux @relation(fields: [animal_id], references: [id_animal])
+  enclos Enclos  @relation(fields: [enclos_id], references: [id_enclos])
+
+  @@map("localisation_animaux")
+}
+
+//////////////////////////////////////@@ TRACABILITÉ @@///////////////////////////////////////
+
+model Mouvements {
+  id_mouvement     Int      @id @default(autoincrement())
+  animal_id        Int
+  type_mouvement   String
+  lieu_origine     String?
+  lieu_destination String?
+  date_mouvement   DateTime @default(now())
+  raison           String?
+  documents        String?
+
+  animal Animaux @relation(fields: [animal_id], references: [id_animal])
+
+  @@map("mouvements")
+}
+
+//////////////////////////////////////@@ STOCK PRODUITS @@///////////////////////////////////////
+
+model StockProduits {
+  id_stock        Int       @id @default(autoincrement())
+  ferme_id        Int
+  type_produit    String
+  produit         String
+  quantite        Float
+  unite           String    @default("unite")
+  date_entree     DateTime  @default(now())
+  date_peremption DateTime?
+  prix_unitaire   Float?
+  statut          String    @default("en_stock")
+
+  ferme Fermes @relation(fields: [ferme_id], references: [id_ferme])
+
+  @@map("stock_produits")
+}
+
+//////////////////////////////////////@@ ALERTES ET NOTIFICATIONS @@///////////////////////////////////////
+
+model Alertes {
+  id_alerte          Int       @id @default(autoincrement())
+  ferme_id           Int
+  type_alerte        String
+  titre              String
+  message            String
+  priorite           String    @default("moyenne")
+  date_creation      DateTime  @default(now())
+  date_echeance      DateTime?
+  statut             String    @default("non_lu")
+  entite_associee    String?
+  id_entite_associee Int?
+
+  ferme Fermes @relation(fields: [ferme_id], references: [id_ferme])
+
+  @@map("alertes")
+}
+
+model ModelesAlertes {
+  id_modele   Int    @id @default(autoincrement())
+  ferme_id    Int
+  type_alerte String
+  declencheur String
+  condition   Json
+  message     String
+  priorite    String @default("moyenne")
+
+  ferme Fermes @relation(fields: [ferme_id], references: [id_ferme])
+
+  @@map("modeles_alertes")
+}
+
+model Notifications {
+  id_notification Int       @id @default(autoincrement())
+  utilisateur_id  Int
+  titre           String
+  message         String
+  type_notif      String
+  statut          String    @default("non_lu")
+  date_creation   DateTime  @default(now())
+  date_lu         DateTime?
+
+  utilisateur Utilisateurs @relation(fields: [utilisateur_id], references: [id_user])
+
+  @@map("notifications")
+}
+
+//////////////////////////////////////@@ MULTIPLATEFORME ET SÉCURITÉ @@///////////////////////////////////////
+
+model Sessions {
+  id_session      Int      @id @default(autoincrement())
+  utilisateur_id  Int
+  token           String   @unique
+  date_creation   DateTime @default(now())
+  date_expiration DateTime
+  ip_address      String?
+  user_agent      String?
+
+  utilisateur Utilisateurs @relation(fields: [utilisateur_id], references: [id_user])
+
+  @@map("sessions")
+}
+
+model Preferences {
+  id_preference  Int     @id @default(autoincrement())
+  utilisateur_id Int
+  langue         String  @default("fr")
+  theme          String  @default("clair")
+  notifications  Boolean @default(true)
+  parametres     Json?
+
+  utilisateur Utilisateurs @relation(fields: [utilisateur_id], references: [id_user])
+
+  @@unique([utilisateur_id])
+  @@map("preferences")
+}
+
+//////////////////////////////////////@@ RAPPORTS ET ANALYTIQUES @@///////////////////////////////////////
+
+model Rapports {
+  id_rapport      Int      @id @default(autoincrement())
+  ferme_id        Int
+  type_rapport    String
+  periode_debut   DateTime
+  periode_fin     DateTime
+  titre           String
+  contenu         Json
+  date_generation DateTime @default(now())
+
+  ferme Fermes @relation(fields: [ferme_id], references: [id_ferme])
+
+  @@map("rapports")
+}
+
+model ModelesRapports {
+  id_modele_rapport Int     @id @default(autoincrement())
+  ferme_id          Int
+  nom_rapport       String
+  type_rapport      String
+  parametres        Json
+  est_actif         Boolean @default(true)
+
+  ferme Fermes @relation(fields: [ferme_id], references: [id_ferme])
+
+  @@map("modeles_rapports")
+}
+
+model Exports {
+  id_export      Int      @id @default(autoincrement())
+  utilisateur_id Int
+  type_export    String
+  fichier_url    String?
+  parametres     Json?
+  date_creation  DateTime @default(now())
+  statut         String   @default("en_cours")
+
+  utilisateur Utilisateurs @relation(fields: [utilisateur_id], references: [id_user])
+
+  @@map("exports")
+}
+
+//////////////////////////////////////@@ PARAMÈTRES @@///////////////////////////////////////
+
+model ParametresFerme {
+  id_parametre   Int     @id @default(autoincrement())
+  ferme_id       Int
+  type_parametre String
+  cle            String
+  valeur         String
+  description    String?
+
+  ferme Fermes @relation(fields: [ferme_id], references: [id_ferme])
+
+  @@unique([ferme_id, cle])
+  @@map("parametres_ferme")
+}
+
+//////////////////////////////////////@@ AUDIT ET HISTORIQUE @@///////////////////////////////////////
+model HistoriqueActions {
+  id_historique     Int      @id @default(autoincrement())
+  utilisateur_id    Int?
+  ferme_id          Int?
+  table_cible       String
+  id_cible          Int?
+  action            String
+  anciennes_valeurs Json?
+  nouvelles_valeurs Json?
+  date_action       DateTime @default(now())
+  ip_address        String?
+
+  utilisateur Utilisateurs? @relation("UserActions", fields: [utilisateur_id], references: [id_user])
+  ferme       Fermes?       @relation("FermeActions", fields: [ferme_id], references: [id_ferme])
+
+  @@map("historique_actions")
+}
