@@ -1,0 +1,793 @@
+// schema.prisma
+// AgroPulse - Prisma schema complet (MySQL)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/////////////////////////
+// ORGANIZATIONS / SAAS
+/////////////////////////
+
+model Organization {
+  id           Int      @id @default(autoincrement())
+  name         String
+  address      String?  @db.Text
+  ownerId      Int
+  contactEmail String?
+  contactPhone String?
+  createdAt    DateTime @default(now())
+
+  // Relations
+  farms         Farm[]
+  users         User[]
+  subscriptions Subscription[]
+  invoices      Invoice[]
+  apiKeys       ApiKey[]
+  backups       Backup[]
+  audit          Audit[]
+}
+
+model Audit {
+  id              Int       @id @default(autoincrement())
+  userId          Int?      // Utilisateur ayant fait l’action (optionnel si c’est un processus automatique)
+  organizationId  Int?   
+  farmId          Int?      // Ferme concernée (optionnel si l’action concerne l’organisation entière)  
+  tableTarget     String    // Nom de la table concernée (ex: 'animals', 'expenses', 'sales')
+  action          String    // Type d’action: CREATE, UPDATE, DELETE, LOGIN, EXPORT, etc.
+  recordId        Int?     
+  description     String?   // Détails de l’action effectuée
+  previousData    Json?     // Données avant modification (utile pour les UPDATE ou DELETE)
+  newData         Json?   
+  ipAddress       String?   
+  userAgent       String?   
+  createdAt       DateTime  @default(now()) 
+
+  // Relations
+  user            User?        @relation(fields: [userId], references: [id])
+  farm            Farm?        @relation(fields: [farmId], references: [id])
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([tableTarget])
+  @@index([action])
+}
+
+
+/////////////////////////
+// USERS / ROLES / PERMISSIONS
+/////////////////////////
+
+model User {
+  id             Int        @id @default(autoincrement())
+  organizationId Int?
+  name           String
+  email          String     @unique
+  passwordHash   String
+  phone          String?
+  defaultFarmId  Int?
+  photo          String?
+  status         UserStatus @default(active)
+  createdAt      DateTime   @default(now())
+
+  organization      Organization?          @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  farm              Farm?                  @relation("DefaultFarm", fields: [defaultFarmId], references: [id], onDelete: SetNull)
+  userRoles         UserRole[]
+  activityLogs      ActivityLog[]
+  notifications     Notification[]
+  performedTasks    FarmTask[]             @relation("AssignedTasks")
+  healthRecords     AnimalHealthRecord[]   @relation("VetHealthRecords")
+  maintenance       EquipmentMaintenance[] @relation("MaintenanceByUser")
+  animalWeights     AnimalWeight[]         @relation("RecorderWeights")
+  feedings          AnimalFeeding[]        @relation("FeedingByUser")
+  transfers         AnimalTransfer[]       @relation("TransferByUser")
+  treatments        AnimalTreatment[]      @relation("TreatmentByUser")
+  AnimalVaccination AnimalVaccination[]
+  animalDeath       AnimalDeath[]
+  audits           Audit[]  
+  productions       Production[]           @relation("ProductionByUser")        
+  births                Birth[]     @relation("RecordedByUser")
+}
+
+enum UserStatus {
+  active
+  inactive
+}
+
+model Role {
+  id          Int                @id @default(autoincrement())
+  name        String               @unique
+  description String?
+  users       UserRole[]
+  permissions RolePermission[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+
+model Permission {
+  id          Int     @id @default(autoincrement())
+  code        String  @unique
+  description String?
+  
+  rolePermissions RolePermission[]
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+}
+
+model UserRole {
+  userId Int
+  roleId Int
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       Int
+  permissionId Int
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  action      String?
+  description String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/////////////////////////
+// FARMS / STRUCTURE
+/////////////////////////
+
+model Farm {
+  id             Int      @id @default(autoincrement())
+  organizationId Int?
+  name           String
+  location       String?
+  area           Float?
+  createdAt      DateTime @default(now())
+  photo         String?
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  barns                 Barn[]
+  herds                 Herd[]
+  lots                  Lot[]
+  animals               Animal[]
+  feedStock             FeedStock[]
+  purchases             Purchase[]
+  expenses              Expense[]
+  sales                 Sale[]
+  inventory             Inventory[]
+  farmTasks             FarmTask[]
+  alerts                Alert[]
+  reports               Report[]
+  financialReports      FinancialReport[]
+  equipmentMaintenances EquipmentMaintenance[]
+  users                 User[]                 @relation("DefaultFarm")
+  audit                 Audit[]
+  births                 Birth[]
+}
+
+model Barn {
+  id        Int      @id @default(autoincrement())
+  farmId    Int
+  name      String
+  capacity  Int?
+  createdAt DateTime @default(now())
+  photo     String?
+  farm Farm  @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  pens Pen[]
+  lots Lot[]
+}
+
+model Pen {
+  id       Int    @id @default(autoincrement())
+  barnId   Int
+  name     String
+  capacity Int?
+
+  barn                Barn             @relation(fields: [barnId], references: [id], onDelete: Cascade)
+  animalMovementsFrom AnimalMovement[] @relation("MoveFrom")
+  animalMovementsTo   AnimalMovement[] @relation("MoveTo")
+}
+
+/////////////////////////
+// SPECIES / BREEDS / HERDS / LOTS
+/////////////////////////
+
+model Species {
+  id   Int     @id @default(autoincrement())
+  code String? @unique
+  name String
+
+  breeds  Breed[]
+  herds   Herd[]
+  lots    Lot[]
+  animals Animal[]
+}
+
+model Breed {
+  id        Int    @id @default(autoincrement())
+  speciesId Int
+  name      String
+
+  species Species  @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  lots    Lot[]
+  animals Animal[]
+}
+
+model Herd {
+  id        Int      @id @default(autoincrement())
+  farmId    Int
+  name      String
+  speciesId Int
+  photo     String?
+  createdAt DateTime @default(now())
+  farm    Farm    @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  species Species @relation(fields: [speciesId], references: [id])
+
+  lots Lot[]
+}
+
+model Purchase {
+  id           Int       @id @default(autoincrement())
+  supplierId   Int?
+  farmId       Int
+  totalAmount  Float?    @map("total_amount")
+  purchaseDate DateTime? @map("purchase_date")
+  invoiceRef   String?   @map("invoice_ref")
+  createdAt    DateTime  @default(now())
+  farm         Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@map("purchases")
+}
+
+model Lot {
+  id        Int       @id @default(autoincrement())
+  herdId    Int?
+  farmId    Int
+  barnId    Int?
+  name      String
+  photo     String?
+  speciesId Int?
+  breedId   Int?
+  ageGroup  String?
+  quantity  Int       @default(0)
+  entryDate DateTime?
+  status    LotStatus @default(active)
+
+  herd    Herd?    @relation(fields: [herdId], references: [id], onDelete: SetNull)
+  farm    Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  barn    Barn?    @relation(fields: [barnId], references: [id], onDelete: SetNull)
+  species Species? @relation(fields: [speciesId], references: [id], onDelete: SetNull)
+  breed   Breed?   @relation(fields: [breedId], references: [id], onDelete: SetNull)
+
+  animals               Animal[]
+  healthRecords         AnimalHealthRecord[]
+  vaccinations          AnimalVaccination[]
+  treatments            AnimalTreatment[]
+  feedUsages            FeedUsage[]
+  animalFeedings        AnimalFeeding[] // ← relation inverse
+  animalTransfersSource AnimalTransfer[]     @relation("TransferSource")
+  animalTransfersTarget AnimalTransfer[]     @relation("TransferTarget")
+  saleItems             SaleItem[]
+  animalDeath           AnimalDeath[]
+  productions           Production[]
+  births                Birth[]
+
+}
+
+enum LotStatus {
+  active
+  closed
+  quarantine
+}
+
+/////////////////////////
+// ANIMALS / HEALTH / REPRODUCTION
+/////////////////////////
+model Birth {
+  id            Int       @id @default(autoincrement())
+  farmId        Int
+  lotId         Int?
+  motherId      Int
+  fatherId      Int?
+  date          DateTime
+  numberBorn    Int       @default(1)
+  numberAlive   Int       @default(1)
+  numberDead    Int       @default(0)
+  notes         String?
+  userId        Int?
+  
+
+  // Relations
+  farm          Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  lot           Lot?      @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  mother        Animal    @relation("BirthMother", fields: [motherId], references: [id], onDelete: Cascade)
+  father        Animal?   @relation("BirthFather", fields: [fatherId], references: [id], onDelete: SetNull)
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull, name: "RecordedByUser")
+
+  newborns      Animal[]  @relation("BirthNewborns")
+  createdAt     DateTime  @default(now())
+}
+
+
+model Animal {
+  id         Int          @id @default(autoincrement())
+  farmId     Int
+  lotId      Int?
+  speciesId  Int
+  breedId    Int?
+  photo      String?
+  birthId     Int?
+  identifier String?
+  gender     Gender       @default(unknown)
+  birthDate  DateTime?
+  weight     Float?
+  status     AnimalStatus @default(active)
+  createdAt  DateTime     @default(now())
+
+  farm    Farm    @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  lot     Lot?    @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  species Species @relation(fields: [speciesId], references: [id])
+  breed   Breed?  @relation(fields: [breedId], references: [id], onDelete: SetNull)
+  birth   Birth?    @relation("BirthNewborns", fields: [birthId], references: [id], onDelete: SetNull)
+
+  birthsAsMother       Birth[]   @relation("BirthMother")
+  birthsAsFather       Birth[]   @relation("BirthFather")
+
+  healthRecords        AnimalHealthRecord[]
+  treatments           AnimalTreatment[]
+  vaccinations         AnimalVaccination[]
+  deaths               AnimalDeath[]
+  reproductionAsFemale AnimalReproduction[] @relation("ReproFemale")
+  reproductionAsMale   AnimalReproduction[] @relation("ReproMale")
+  weights              AnimalWeight[]
+  feedings             AnimalFeeding[]
+  movements            AnimalMovement[]
+  saleItems            SaleItem[]
+  animalTransfers      AnimalTransfer[]
+}
+
+enum Gender {
+  male
+  female
+  unknown
+}
+
+enum AnimalStatus {
+  active
+  sold
+  dead
+  transferred
+}
+
+model AnimalHealthRecord {
+  id             Int      @id @default(autoincrement())
+  animalId       Int?
+  lotId          Int?
+  checkDate      DateTime
+  symptoms       String?  @db.Text
+  diagnosis      String?  @db.Text
+  treatment      String?  @db.Text
+  veterinarianId Int?
+
+  animal       Animal? @relation(fields: [animalId], references: [id], onDelete: SetNull)
+  lot          Lot?    @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  veterinarian User?   @relation(fields: [veterinarianId], references: [id], onDelete: SetNull, name: "VetHealthRecords")
+}
+
+model AnimalTreatment {
+  id             Int       @id @default(autoincrement())
+  animalId       Int?
+  lotId          Int?
+  treatmentName  String?
+  medication     String?
+  dosage         String?
+  startDate      DateTime?
+  endDate        DateTime?
+  administeredBy Int?
+
+  animal Animal? @relation(fields: [animalId], references: [id], onDelete: SetNull)
+  lot    Lot?    @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  admin  User?   @relation(fields: [administeredBy], references: [id], onDelete: SetNull, name: "TreatmentByUser")
+}
+
+model AnimalVaccination {
+  id             Int       @id @default(autoincrement())
+  animalId       Int?
+  lotId          Int?
+  vaccineName    String?
+  dateGiven      DateTime?
+  nextDue        DateTime?
+  administeredBy Int?
+
+  animal Animal? @relation(fields: [animalId], references: [id], onDelete: SetNull)
+  lot    Lot?    @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  admin  User?   @relation(fields: [administeredBy], references: [id], onDelete: SetNull)
+}
+
+model AnimalDeath {
+  id          Int       @id @default(autoincrement())
+  animalId    Int?
+  lotId       Int?
+  dateOfDeath DateTime?
+  cause       String?
+  recordedBy  Int?
+
+  animal   Animal? @relation(fields: [animalId], references: [id], onDelete: SetNull)
+  lot      Lot?    @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  recorder User?   @relation(fields: [recordedBy], references: [id], onDelete: SetNull)
+}
+
+model AnimalReproduction {
+  id              Int       @id @default(autoincrement())
+  femaleId        Int?
+  maleId          Int?
+  matingDate      DateTime?
+  expectedBirth   DateTime?
+  actualBirthDate DateTime?
+  numberBorn      Int?
+  notes           String?
+
+  female Animal? @relation("ReproFemale", fields: [femaleId], references: [id], onDelete: SetNull)
+  male   Animal? @relation("ReproMale", fields: [maleId], references: [id], onDelete: SetNull)
+}
+
+model Production {
+  id            Int        @id @default(autoincrement())
+  lotId         Int?
+  date          DateTime   @default(now())
+  productType   String     // ex: "milk", "eggs", "meat", "honey"
+  quantity      Float
+  unit          String     // ex: "L", "kg", "pcs"
+  qualityGrade  String?    // facultatif (A, B, C)
+  notes         String?
+  userId        Int?
+  saleItemId    Int?
+
+  // Relations
+  lot           Lot?        @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  user          User?       @relation(fields: [userId], references: [id], onDelete: SetNull, name: "ProductionByUser")
+  saleItem      SaleItem?   @relation(fields: [saleItemId], references: [id], onDelete: SetNull)
+}
+
+
+/////////////////////////
+// FINANCE / EXPENSES / SALES
+/////////////////////////
+
+model Expense {
+  id         Int      @id @default(autoincrement())
+  farmId     Int
+  categoryId Int?
+  amount     Float
+  date       DateTime
+  notes      String?
+
+  farm     Farm             @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  category ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+}
+
+model ExpenseCategory {
+  id       Int       @id @default(autoincrement())
+  name     String
+  expenses Expense[]
+}
+
+model Sale {
+  id     Int      @id @default(autoincrement())
+  farmId Int
+  date   DateTime
+  total  Float
+  notes  String?
+
+  farm      Farm       @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  saleItems SaleItem[]
+}
+
+model SaleItem {
+  id       Int   @id @default(autoincrement())
+  saleId   Int
+  lotId    Int?
+  animalId Int?
+  quantity Int
+  price    Float
+   production     Production[]
+  sale   Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  lot    Lot?    @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  animal Animal? @relation(fields: [animalId], references: [id], onDelete: SetNull)
+ 
+}
+
+/////////////////////////
+// INVENTORY / FEED / EQUIPMENT
+/////////////////////////
+
+model Inventory {
+  id       Int     @id @default(autoincrement())
+  farmId   Int
+  name     String
+  quantity Float
+  unit     String
+  notes    String?
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+}
+
+model FeedStock {
+  id       Int     @id @default(autoincrement())
+  farmId   Int
+  name     String
+  quantity Float
+  unit     String
+  notes    String?
+
+  farm           Farm            @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  feedUsages     FeedUsage[]
+  animalFeedings AnimalFeeding[]
+}
+
+model FeedUsage {
+  id          Int      @id @default(autoincrement())
+  lotId       Int
+  feedStockId Int
+  quantity    Float
+  date        DateTime
+
+  lot       Lot       @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  feedStock FeedStock @relation(fields: [feedStockId], references: [id], onDelete: Cascade)
+}
+
+model AnimalFeeding {
+  id          Int      @id @default(autoincrement())
+  animalId    Int
+  feedStockId Int
+  lotId       Int? // ← champ ajouté
+  quantity    Float
+  date        DateTime
+  userId      Int?
+
+  animal    Animal    @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  feedStock FeedStock @relation(fields: [feedStockId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull, name: "FeedingByUser")
+  lot       Lot?      @relation(fields: [lotId], references: [id], onDelete: SetNull) // ← relation ajoutée
+}
+
+model EquipmentMaintenance {
+  id     Int      @id @default(autoincrement())
+  farmId Int
+  name   String
+  date   DateTime
+  notes  String?
+  userId Int?
+
+  farm Farm  @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull, name: "MaintenanceByUser")
+}
+
+/////////////////////////
+// TRANSFERS / MOVEMENTS
+/////////////////////////
+
+model AnimalTransfer {
+  id        Int      @id @default(autoincrement())
+  animalId  Int
+  fromLotId Int?
+  toLotId   Int?
+  date      DateTime
+  userId    Int?
+
+  animal  Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  fromLot Lot?   @relation("TransferSource", fields: [fromLotId], references: [id])
+  toLot   Lot?   @relation("TransferTarget", fields: [toLotId], references: [id])
+  user    User?  @relation(fields: [userId], references: [id], onDelete: SetNull, name: "TransferByUser")
+}
+
+model AnimalWeight {
+  id       Int      @id @default(autoincrement())
+  animalId Int
+  weight   Float
+  date     DateTime
+  userId   Int?
+
+  animal Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull, name: "RecorderWeights")
+}
+
+model AnimalMovement {
+  id        Int      @id @default(autoincrement())
+  animalId  Int
+  fromPenId Int?
+  toPenId   Int?
+  date      DateTime
+
+  animal  Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  fromPen Pen?   @relation("MoveFrom", fields: [fromPenId], references: [id])
+  toPen   Pen?   @relation("MoveTo", fields: [toPenId], references: [id])
+}
+
+/////////////////////////
+// ALERTS / TASKS / REPORTS
+/////////////////////////
+
+model Alert {
+  id      Int         @id @default(autoincrement())
+  farmId  Int
+  title   String
+  message String
+  date    DateTime
+  status  AlertStatus @default(active)
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+}
+
+enum AlertStatus {
+  active
+  resolved
+}
+
+model FarmTask {
+  id          Int        @id @default(autoincrement())
+  farmId      Int
+  title       String
+  description String?
+  assignedTo  Int?
+  status      TaskStatus @default(pending)
+  dueDate     DateTime?
+
+  farm         Farm  @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  assignedUser User? @relation(fields: [assignedTo], references: [id], onDelete: SetNull, name: "AssignedTasks")
+}
+
+enum TaskStatus {
+  pending
+  inProgress
+  completed
+  cancelled
+}
+
+model Report {
+  id        Int      @id @default(autoincrement())
+  farmId    Int
+  title     String
+  content   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+}
+
+model FinancialReport {
+  id        Int      @id @default(autoincrement())
+  farmId    Int
+  title     String
+  content   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+}
+
+/////////////////////////
+// SAAS / SUBSCRIPTIONS / PLANS / API KEYS / BACKUPS / INVOICES
+/////////////////////////
+
+model Plan {
+  id            Int            @id @default(autoincrement())
+  name          String
+  price         Float
+  durationDays  Int
+  description   String?
+  billingCycle  String
+  userLimit     Int?
+  storageLimit  Int?
+  animalLimit   Int?
+  subscriptions Subscription[]
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+model Subscription {
+  id             Int                @id @default(autoincrement())
+  organizationId Int
+  planId         Int
+  startDate      DateTime
+  endDate        DateTime
+  status         SubscriptionStatus @default(active)
+  renewalType    RenewalType
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan           Plan               @relation(fields: [planId], references: [id], onDelete: Cascade)
+  invoices       Invoice[]
+}
+
+enum SubscriptionStatus {
+  active
+  expired
+  cancelled
+}
+
+enum RenewalType {
+  AUTO
+  MANUAL
+}
+
+model ApiKey {
+  id             Int       @id @default(autoincrement())
+  organizationId Int
+  key            String
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Backup {
+  id             Int      @id @default(autoincrement())
+  organizationId Int
+  filePath       String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id             Int           @id @default(autoincrement())
+  organizationId Int
+  subscriptionId Int
+  amount         Float
+  status         InvoiceStatus @default(pending)
+  paymentMethod  String?
+  currency       String
+  issuedAt       DateTime      @default(now())
+  dueAt          DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+}
+
+enum InvoiceStatus {
+  pending
+  paid
+  overdue
+}
+
+enum PaymentMethod {
+  card
+  mobile_money
+  orange_money
+  paypal
+  others
+}
+
+
+
+
