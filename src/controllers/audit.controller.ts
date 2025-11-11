@@ -1,7 +1,7 @@
 
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import{ AuditWhere} from '../types/audit'
+import{ AuditWhere} from '../typages/audit.js'
 const prisma = new PrismaClient();
 
 
