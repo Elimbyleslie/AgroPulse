@@ -299,7 +299,7 @@ export const removeRole = async (req: Request, res: Response) => {
 
     // Supprime l’association
     await prisma.userRole.delete({
-      where : { userId_roleId : userRole.userId_roleId}
+      where : { userId_roleId : userRole}
     });
 
     return res.status(200).json({
