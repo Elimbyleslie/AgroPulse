@@ -4,7 +4,7 @@ import {
     getAllAnimalFeedings,
     getAnimalFeedingById,
     updateAnimalFeeding
-} from '../controllers/animalFeedingController';
+} from '../controllers/animalFeedingController.js';
 import { Router } from 'express';
 import { createAnimalFeedingSchema, updateAnimalFeedingSchema } from '../validations/animalFeeding.js';
 import { validator } from '../middlewares/validator.middleware.js';

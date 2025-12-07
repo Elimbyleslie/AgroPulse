@@ -12,19 +12,25 @@ export const createPurchase = async (
   next: NextFunction
 ) => {
   try {
-    const { farmId, supplierId, totalAmount, purchaseDate, invoiceRef } = req.body;
+    const { name, farmId, supplierId, totalAmount, purchaseDate, description } =
+      req.body;
 
     if (!farmId) {
       return ResponseApi.error(res, "farmId est obligatoire", 400);
     }
 
+    if (supplierId === undefined) {
+      throw new Error("Le supplierId est obligatoire pour créer un achat.");
+    }
+
     const purchase = await prisma.purchase.create({
       data: {
+        name,
         farmId,
         supplierId,
         totalAmount,
+        description,
         purchaseDate,
-        invoiceRef,
       },
     });
 
@@ -38,7 +44,12 @@ export const createPurchase = async (
 // GET ALL Purchases (pagination + filter)
 // ======================================================
 export const getAllPurchases = async (
-  req: Request<{}, {}, {}, { search?: string; farmId?: string; page?: string; limit?: string }>,
+  req: Request<
+    {},
+    {},
+    {},
+    { search?: string; farmId?: string; page?: string; limit?: string }
+  >,
   res: Response,
   next: NextFunction
 ) => {

@@ -1,11 +1,13 @@
 export interface Purchase {
-  id?: number;
-  supplierId?: number;
+  id: number;
+  name: string;
+  supplierId: number;
   farmId: number;
   totalAmount?: number;
+  description?: string;
   purchaseDate?: string; // ISO
-  invoiceRef?: string;
-  createdAt?: string;
+  invoiceRef: string;
+  createdAt: string;
 }
 
 export enum PurchaseStatus {

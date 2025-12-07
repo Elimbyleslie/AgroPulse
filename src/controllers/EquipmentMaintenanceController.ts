@@ -37,7 +37,7 @@ export const getAllEquipmentMaintenances = async (
       where,
       skip,
       take: limit,
-      orderBy: { date: "desc" },
+      orderBy: { id: "desc" },
       include: { farm: true, user: true },
     });
     const totalItems = await prisma.equipmentMaintenance.count({ where });
