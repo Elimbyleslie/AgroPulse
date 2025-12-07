@@ -35,7 +35,26 @@ class Utilities {
       data,
     });
   }
+    static successReponse = (code: number, message: string, data: any) => {
+    return {
+      meta: {
+        status: code,
+        message,
+      },
+      data,
+    };
+  };
 
+
+  static errorResponse = (code: number, message: string, error?: any) => {
+    return {
+      meta: {
+        status: code,
+        message,
+      },
+      error,
+    };
+  };
   /**
    * Réponse de succès simple (sans Express)
    */
@@ -157,6 +176,8 @@ class Utilities {
   static async comparePassword(password: string, hash: string) {
     return bcrypt.compare(password, hash);
   }
+
+
 }
 
 export default Utilities;

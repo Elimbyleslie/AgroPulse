@@ -1,0 +1,255 @@
+{
+  "info": {
+    "name": "AgroPulse API - Global Collection",
+    "_postman_id": "agropulse-full-collection",
+    "description": "Collection complète regroupant tous les modules AgroPulse",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+
+  "variable": [
+    { "key": "Urlbase", "value": "http://localhost:5000/api" },
+    { "key": "token", "value": "" }
+  ],
+
+  "item": [
+
+
+    {
+      "name": "AUTH",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{Urlbase}}/auth/register",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Example\",\n  \"email\": \"user@example.com\",\n  \"password\": \"12345678\"\n}" }
+          }
+        },
+        {
+          "name": "Login",
+          "request": { "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{Urlbase}}/auth/login",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"12345678\"\n}" }
+          }
+        },
+        { "name": "Refresh", "request": { "method": "GET", "url": "{{Urlbase}}/auth/refresh" } }
+      ]
+    },
+
+    {
+      "name": "ORGANIZATIONS",
+      "item": [
+        { "name": "Create", "request": { "method": "POST", "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{Urlbase}}/organizations",
+        "body": { "mode": "raw", "raw": "{\n  \"name\": \"Farm A\",\n  \"address\": \"City\"\n}" }}},
+        { "name": "Get All", "request": { "method": "GET", "header":[{ "key": "Authorization","value":"Bearer {{token}}" }], "url": "{{Urlbase}}/organizations" }},
+        { "name": "Get One", "request": { "method": "GET", "header":[{ "key": "Authorization","value":"Bearer {{token}}" }], "url": "{{Urlbase}}/organizations/:id" }},
+        { "name": "Update", "request": { "method": "PUT", "header":[
+          { "key": "Content-Type","value":"application/json" },
+          { "key": "Authorization","value":"Bearer {{token}}" }
+        ],
+        "url": "{{Urlbase}}/organizations/:id",
+        "body": { "mode": "raw", "raw": "{ \"name\": \"New Name\" }" }}},
+        { "name": "Delete", "request": { "method": "DELETE", "header":[{ "key": "Authorization","value":"Bearer {{token}}" }], "url": "{{Urlbase}}/organizations/:id" }}
+      ]
+    },
+
+    {
+      "name": "USERS",
+      "item": [
+        { "name": "Create", "request": { "method": "POST",
+          "header": [
+            { "key": "Content-Type","value": "application/json" },
+            { "key": "Authorization","value": "Bearer {{token}}" }
+          ],
+          "url": "{{Urlbase}}/users",
+          "body": { "mode": "raw", "raw": "{\n  \"name\":\"User\",\n  \"email\":\"user@mail.com\",\n  \"password\":\"12345678\"\n}" }
+        }},
+        { "name": "Get All", "request": { "method": "GET", "header":[{ "key": "Authorization","value":"Bearer {{token}}" }], "url": "{{Urlbase}}/users" }},
+        { "name": "Get One", "request": { "method": "GET", "header":[{ "key": "Authorization","value":"Bearer {{token}}" }], "url": "{{Urlbase}}/users/:id" }},
+        { "name": "Update", "request": { "method": "PUT",
+          "header":[
+            { "key": "Content-Type","value":"application/json" },
+            { "key": "Authorization","value":"Bearer {{token}}" }
+          ],
+          "url": "{{Urlbase}}/users/:id",
+          "body": { "mode": "raw", "raw": "{ \"name\": \"Updated User\" }" }
+        }},
+        { "name": "Delete", "request": { "method": "DELETE", "header":[{ "key": "Authorization","value":"Bearer {{token}}" }], "url": "{{Urlbase}}/users/:id" }}
+      ]
+    },
+
+  
+    {
+      "name": "FARMS",
+      "item": [
+        { "name": "Create", "request": { "method":"POST","header":[
+          { "key":"Content-Type","value":"application/json"},{ "key":"Authorization","value":"Bearer {{token}}" }
+        ],
+        "url":"{{Urlbase}}/farms",
+        "body":{ "mode":"raw","raw":"{\n  \"name\":\"Farm 1\",\n  \"location\":\"Village\"\n}"}}},
+
+        { "name": "Get All", "request": { "method":"GET","header":[{ "key":"Authorization","value":"Bearer {{token}}" }],"url":"{{Urlbase}}/farms" }},
+        { "name": "Get One", "request": { "method":"GET","header":[{ "key":"Authorization","value":"Bearer {{token}}" }],"url":"{{Urlbase}}/farms/:id" }},
+        { "name": "Update", "request": { "method":"PUT","header":[
+          { "key":"Content-Type","value":"application/json"},{ "key":"Authorization","value":"Bearer {{token}}" }
+        ],"url":"{{Urlbase}}/farms/:id","body":{ "mode":"raw","raw":"{ \"name\":\"Farm Updated\" }" }}},
+        { "name": "Delete", "request": { "method":"DELETE","header":[{ "key":"Authorization","value":"Bearer {{token}}" }],"url":"{{Urlbase}}/farms/:id" }}
+      ]
+    },
+
+
+    {
+      "name": "ANIMALS",
+      "item": [
+        { "name": "Create", "request":
+        { "method":"POST","header":[
+          { "key":"Content-Type","value":"application/json"},{ "key":"Authorization","value":"Bearer {{token}}" }
+        ],
+        "url":"{{Urlbase}}/animals",
+        "body":{ "mode":"raw","raw":"{\n  \"tag\":\"A001\",\n  \"speciesId\":1,\n  \"birthDate\":\"2024-01-01\"\n}"}}},
+
+        { "name": "Get All", "request": { "method":"GET","header":[{ "key":"Authorization","value":"Bearer {{token}}" }],"url":"{{Urlbase}}/animals" }},
+        { "name": "Get One", "request": { "method":"GET","header":[{ "key":"Authorization","value":"Bearer {{token}}" }],"url":"{{Urlbase}}/animals/:id" }},
+        { "name": "Update", "request": { "method":"PUT","header":[
+          { "key":"Content-Type","value":"application/json"},{ "key":"Authorization","value":"Bearer {{token}}" }
+        ],"url":"{{Urlbase}}/animals/:id","body":{ "mode":"raw","raw":"{ \"tag\":\"A001-UPDATED\" }" }}},
+        { "name": "Delete", "request": { "method":"DELETE","header":[{ "key":"Authorization","value":"Bearer {{token}}" }],"url":"{{Urlbase}}/animals/:id" }}
+      ]
+    },
+
+   
+    {
+      "name": "REPRODUCTION",
+      "item":[
+        { "name":"Create","request":{"method":"POST","header":[
+          {"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}
+        ],
+        "url":"{{Urlbase}}/reproduction",
+        "body":{"mode":"raw","raw":"{\n  \"animalId\":1,\n  \"type\":\"AI\",\n  \"date\":\"2025-01-01\"\n}"}}},
+
+        { "name":"Get All","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/reproduction"}},
+        { "name":"Get One","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/reproduction/:id"}},
+        { "name":"Update","request":{"method":"PUT","header":[
+          {"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}
+        ],
+        "url":"{{Urlbase}}/reproduction/:id",
+        "body":{"mode":"raw","raw":"{ \"type\":\"Natural\" }"}}},
+        { "name":"Delete","request":{"method":"DELETE","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/reproduction/:id"}}
+      ]
+    },
+
+
+    {
+      "name": "BIRTHS",
+      "item":[
+        { "name":"Create","request":{"method":"POST","header":[
+          {"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}
+        ],
+        "url":"{{Urlbase}}/births",
+        "body":{"mode":"raw","raw":"{\n  \"motherId\":1,\n  \"date\":\"2025-01-03\",\n  \"number\":2\n}"}}},
+        { "name":"Get All","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/births"}},
+        { "name":"Get One","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/births/:id"}},
+        { "name":"Update","request":{"method":"PUT","header":[
+          {"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}
+        ],"url":"{{Urlbase}}/births/:id","body":{"mode":"raw","raw":"{ \"number\":3 }"}}},
+        { "name":"Delete","request":{"method":"DELETE","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/births/:id"}}
+      ]
+    },
+
+   
+    {
+      "name": "HEALTH",
+      "item":[
+        { "name":"Vaccinations","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/health/vaccinations"}},
+        { "name":"Treatments","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/health/treatments"}},
+        { "name":"Weights","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/health/weights"}}
+      ]
+    },
+
+  
+    {
+      "name":"PRODUCTION",
+      "item":[
+        { "name":"Create","request":{"method":"POST","header":[
+          {"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}
+        ],"url":"{{Urlbase}}/production","body":{"mode":"raw","raw":"{\n  \"animalId\":1,\n  \"quantity\":5,\n  \"type\":\"Milk\"\n}"}}},
+        { "name":"Get All","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/production"}},
+        { "name":"Get One","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/production/:id"}},
+        { "name":"Update","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/production/:id","body":{"mode":"raw","raw":"{ \"quantity\": 7 }"}}},
+        { "name":"Delete","request":{"method":"DELETE","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/production/:id"}}
+      ]
+    },
+
+
+    {
+      "name":"SALES",
+      "item":[
+        { "name":"Create","request":{"method":"POST","header":[
+          {"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}
+        ],"url":"{{Urlbase}}/sales","body":{"mode":"raw","raw":"{\n  \"item\":\"Milk\",\n  \"quantity\":10,\n  \"amount\":3000\n}"}}},
+        { "name":"Get All","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/sales"}},
+        { "name":"Get One","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/sales/:id"}},
+        { "name":"Update","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/sales/:id","body":{"mode":"raw","raw":"{ \"amount\": 3500 }"}}},
+        { "name":"Delete","request":{"method":"DELETE","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/sales/:id"}}
+      ]
+    },
+
+   
+    {
+      "name":"EXPENSES",
+      "item":[
+        { "name":"Create","request":{"method":"POST","header":[
+          {"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}
+        ],"url":"{{Urlbase}}/expenses","body":{"mode":"raw","raw":"{\n  \"item\":\"Feed\",\n  \"amount\":5000\n}"}}},
+        { "name":"Get All","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/expenses"}},
+        { "name":"Get One","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/expenses/:id"}},
+        { "name":"Update","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/expenses/:id","body":{"mode":"raw","raw":"{ \"amount\": 6000 }"}}},
+        { "name":"Delete","request":{"method":"DELETE","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/expenses/:id"}}
+      ]
+    },
+
+    {
+      "name":"STOCK",
+      "item":[
+        { "name":"Create Item","request":{"method":"POST","header":[
+          {"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}
+        ],"url":"{{Urlbase}}/stock","body":{"mode":"raw","raw":"{\n  \"name\":\"Feed\",\n  \"quantity\":100\n}"}}},
+        { "name":"Get All","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/stock"}},
+        { "name":"Update","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/stock/:id","body":{"mode":"raw","raw":"{ \"quantity\": 200 }"}}},
+        { "name":"Delete","request":{"method":"DELETE","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/stock/:id"}}
+      ]
+    },
+
+    {
+      "name":"NOTIFICATIONS",
+      "item":[
+        { "name":"Create","request":{"method":"POST","header":[
+          {"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}
+        ],"url":"{{Urlbase}}/notifications","body":{"mode":"raw","raw":"{\n  \"userId\":1,\n  \"title\":\"Alert\",\n  \"message\":\"Message...\"\n}"}}},
+        { "name":"Get All","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/notifications"}},
+        { "name":"Get One","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/notifications/:id"}},
+        { "name":"Mark as Read","request":{"method":"PUT","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/notifications/:id/read"}},
+        { "name":"Mark as Unread","request":{"method":"PUT","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/notifications/:id/unread"}},
+        { "name":"Delete","request":{"method":"DELETE","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/notifications/:id"}}
+      ]
+    },
+
+
+    {
+      "name":"API KEYS",
+      "item":[
+        { "name":"Create","request":{"method":"POST","header":[
+          {"key":"Content-Type","value":"application/json"},{"key":"Authorization","value":"Bearer {{token}}"}
+        ],"url":"{{Urlbase}}/apikeys","body":{"mode":"raw","raw":"{ \"organizationId\":1 }"}}},
+        { "name":"Get All","request":{"method":"GET","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/apikeys"}},
+        { "name":"Delete","request":{"method":"DELETE","header":[{"key":"Authorization","value":"Bearer {{token}}"}],"url":"{{Urlbase}}/apikeys/:id"}}
+      ]
+    }
+  ]
+}

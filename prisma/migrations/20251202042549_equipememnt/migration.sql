@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE `equipment` ADD COLUMN `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    ADD COLUMN `maintenanceDate` DATETIME(3) NULL,
+    ADD COLUMN `value` DOUBLE NULL;

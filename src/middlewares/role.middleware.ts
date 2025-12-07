@@ -19,7 +19,7 @@ export const isAdmin = async (req: Request, res: Response, next: NextFunction) =
       include: { role: true },
     });
 
-    const roleNames = userRoles.map((ur) => ur.role.name.toLowerCase());
+    const roleNames = userRoles.map((ur :{ role: { name: string; }; }) => ur.role.name.toLowerCase());
 
     // Vérifie si l'utilisateur a un rôle admin
     if (!roleNames.includes("admin")) {
@@ -46,7 +46,7 @@ export const isManager = async (req: Request, res: Response, next: NextFunction)
       include: { role: true },  
     });
 
-    const roleNames = userRoles.map((ur) => ur.role.name.toLowerCase());
+    const roleNames = userRoles.map((ur :{ role: { name: string; }; }) => ur.role.name.toLowerCase());
     if (!roleNames.includes("manager")) {
       return res.status(403).json({ error: "Accès refusé. Vous devez être gestionnaire." });
     }
@@ -68,7 +68,7 @@ export const isEmployee = async (req: Request, res: Response, next: NextFunction
             where: { userId },
             include: { role: true },
         });
-        const roleNames = userRoles.map((ur) => ur.role.name.toLowerCase());
+        const roleNames = userRoles.map((ur :{ role: { name: string; }; }) => ur.role.name.toLowerCase());
         if (!roleNames.includes("employee")) {
             return res.status(403).json({ error: "Accès refusé. Vous devez être employé." });
         }
@@ -91,7 +91,7 @@ export const hasRole = (requiredRoles: string[]) => {
             where: { userId },
             include: { role: true },
         });
-        const roleNames = userRoles.map((ur) => ur.role.name.toLowerCase());
+        const roleNames = userRoles.map((ur : { role: { name: string; }; }) => ur.role.name.toLowerCase());
         const hasRequiredRole = requiredRoles.some(role => roleNames.includes(role.toLowerCase()));
         if (!hasRequiredRole) {
             return res.status(403).json({ error: `Accès refusé. Rôle requis: ${requiredRoles.join(', ')}` });

@@ -4,14 +4,14 @@ import ResponseApi from '../helpers/response.js';
 import bcrypt from 'bcryptjs';
 import { logAction } from './audit.controller.js';
 import { AuthenticatedRequest } from '../middlewares/auth.js';
-import handlePrismaError from '../helpers/prismaErrorHandler.js';
+import { User } from '../typages/user.js';
 
   // 🧩 Récupérer tous les utilisateurs
   export const getAllUsers = async (req: Request, res: Response) => {
     try {
       const users = await prisma.user.findMany({
         include: {
-          userRoles: true, // si tu as une table UserRole reliée
+          roles: true, // si tu as une table UserRole reliée
           organization: true,
         },
       });
@@ -33,7 +33,7 @@ import handlePrismaError from '../helpers/prismaErrorHandler.js';
       const user = await prisma.user.findUnique({
         where: { id: Number(id) },
         include: {
-          userRoles: true,
+          roles: true,
           organization: true,
         },
       });
@@ -60,11 +60,11 @@ import handlePrismaError from '../helpers/prismaErrorHandler.js';
   //         email,
   //         passwordHash, // (ici tu pourras hasher le mot de passe comme dans auth.controller)
   //         organizationId,
-  //         userRoles: {
+  //         roles: {
   //           create: roleIds?.map((roleId: number) => ({ roleId })) || [],
   //         },
   //       },
-  //       include: { userRoles: true },
+  //       include: { roles: true },
   //     });
   //    const saltRounds = 10;
   //   const salt = await bcrypt.genSalt(saltRounds);
@@ -79,30 +79,61 @@ import handlePrismaError from '../helpers/prismaErrorHandler.js';
   //   }
   // },
   
-  export const createUser = async (req: Request, res: Response, next: NextFunction) => {
-  const data = req.body;
-  //verifier si l'email existe deja 
+export const createUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const user = await prisma.user.findFirst({
+    const { name, email, userName, password, phone, status, roleId, passwordConfirmation } = req.body;
+
+    // Vérification de base
+    if (!email || !password || !name) {
+      return ResponseApi.error(res, 'Nom, email et mot de passe requis.', 400);
+    }
+
+    // Vérifier si l'email existe déjà
+    const existingUser = await prisma.user.findFirst({
       where: {
-        OR: [{ email: data.email }, { name: data.name }],
+        OR: [{ email }, { name }],
       },
     });
-    if (user) ResponseApi.error(res, 'Email déjà utilisé', 409);
+    if (existingUser) {
+      return ResponseApi.error(res, 'Email ou nom déjà utilisé.', 409);
+    }
 
+    // Vérifier la confirmation de mot de passe
+    if (passwordConfirmation && password !== passwordConfirmation) {
+      return ResponseApi.error(res, 'Les mots de passe ne correspondent pas.', 400);
+    }
+
+    // Hachage du mot de passe
     const saltRounds = 10;
-    const salt = await bcrypt.genSalt(saltRounds);
-    const hash = await bcrypt.hash(data.passwordHash, salt);
-    data.passwordHash = hash;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
 
-    delete data.passwordConfirmation;
-    const result = await prisma.user.create({ data });
-    ResponseApi.success(res, 'Utilisateur créé avec succès !', 201, result);
+    // Création de l'utilisateur
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        userName,
+        phone,
+        status: status || 'active',
+        password,
+        roles: roleId
+          ? {
+              create: {
+                roleId,
+                assignedBy: req.user?.email || 'system',
+              },
+            }
+          : undefined,
+      },
+    });
+
+    return ResponseApi.success(res, 'Utilisateur créé avec succès !', 201, newUser);
   } catch (error) {
-    handlePrismaError(error, res);
+  
     next(error);
   }
 };
+
 
   // ✏️ Mettre à jour un utilisateur
   export const updateUser = async(req: Request, res: Response)=> {
@@ -120,12 +151,12 @@ import handlePrismaError from '../helpers/prismaErrorHandler.js';
           name,
           email,
           organizationId,
-          userRoles: {
+          roles: {
             deleteMany: {}, // supprime les anciens rôles
             create: roleIds?.map((roleId: number) => ({ roleId })) || [],
           },
         },
-        include: { userRoles: true },
+        include: { roles: true },
       });
 
       res.json({ message: 'Utilisateur mis à jour', user });
@@ -176,7 +207,7 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response) =
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       include: {
-        userRoles: {
+        roles: {
           include: {
             role: true
           }
@@ -194,7 +225,7 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response) =
       email: user.email,
       phone: user.phone,
       status: user.status,
-      roles: user.userRoles
+      roles: user.roles
     });
 
   } catch (error) {
@@ -212,11 +243,11 @@ export const updateUserProfile = async (req: AuthenticatedRequest, res: Response
       return res.status(401).json({ error: "Utilisateur non authentifié" });
     }
 
-    const { name, email, phone, password } = req.body;
+    const { userName, email, phone, password } = req.body;
 
     const dataToUpdate: any = {};
 
-    if (name) dataToUpdate.name = name;
+    if (userName) dataToUpdate.userName = userName;
     if (email) dataToUpdate.email = email;
     if (phone) dataToUpdate.phone = phone;
     if (password) {
@@ -230,7 +261,7 @@ export const updateUserProfile = async (req: AuthenticatedRequest, res: Response
       data: dataToUpdate,
       select: {
         id: true,
-        name: true,
+        userName: true,
         email: true,
         phone: true,
         status: true
@@ -262,10 +293,13 @@ export const assignRole = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Rôle introuvable' });
     }
 
+    // Provide the required assignedBy field; prefer authenticated user email if available
+    const assignedBy = (req as any).user?.email || 'system';
+
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { userRoles: { create: { roleId } } },
-      include: { userRoles: true },
+      data: { roles: { create: { roleId, assignedBy } } },
+      include: { roles: true },
     });
 
     return res.status(200).json({
@@ -321,7 +355,7 @@ export const getUserRoles = async (req: Request, res: Response) => {
       include: { role: true },
     });
 
-    return res.status(200).json(roles.map(r => r.role));
+    return res.status(200).json(roles.map((r: { role: any }) => r.role) as any[]);
   } catch (error: any) {
     console.error("Erreur récupération rôles:", error);
     return res.status(500).json({ error: "Erreur serveur" });
