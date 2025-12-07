@@ -6,13 +6,13 @@ export const createdUserSchema = yup.object({
   email: yup.string().email().required(),
   name: yup.string().required().min(2),
   phone: yup.string().required(),
-  passwordHash: yup
+  password: yup
     .string()
-    .matches(passwordRules, { message: 'Please create a stronger password' })
+    .matches(passwordRules, { message: 'créer un mot de passe plus  securisé' })
     .required()
     .min(8) as yup.StringSchema,
   passwordConfirmation: yup
     .string()
-    .oneOf([yup.ref('passwordHash')], 'Passwords must match')
+    .oneOf([yup.ref('password')], 'les mots de passe doivent correspondre')
     .required(),
 });

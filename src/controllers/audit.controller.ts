@@ -1,8 +1,8 @@
 
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import  prisma from "../models/prismaClient.js";
 import{ AuditWhere} from '../typages/audit.js'
-const prisma = new PrismaClient();
+import  ResponseApi  from '../helpers/response.js';
 
 
 export const getAllAuditLogs = async (req: Request, res: Response) => {
@@ -52,7 +52,7 @@ export const getAllAuditLogs = async (req: Request, res: Response) => {
               id: true,
               name: true,
               email: true,
-              userRoles: true
+              roles: true
             }
           },
           farm: {
@@ -307,7 +307,7 @@ export const exportAuditLogs = async (req: Request, res: Response) => {
             id: true,
             name: true,
             email: true,
-            userRoles: true
+            roles: true
           }
         },
         farm: {
@@ -373,7 +373,7 @@ export const getAuditLogById = async (req: Request, res: Response) => {
             id: true,
             name: true,
             email: true,
-            userRoles: true
+            roles: true
           }
         },
         farm: {
