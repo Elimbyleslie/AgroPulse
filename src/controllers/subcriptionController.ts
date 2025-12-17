@@ -43,31 +43,40 @@ export const createSubscription = async (
   }
 };
 
-// Lister les abonnements d'une organisation
-export const getOrganizationSubscriptions = async (
-  req: Request,
-  res: Response
-) => {
+// Lister les abonnements d'une organisation avec pagination et search
+export const getOrganizationSubscriptions = async (req: Request, res: Response) => {
   try {
     const { organizationId } = req.params;
-
+    const { page = "1", limit = "10", search = "" } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
     const subscriptions = await prisma.subscription.findMany({
       where: { organizationId: Number(organizationId) },
-      include: { plan: true, invoices: true },
-      orderBy: { startDate: "desc" },
+      take: Number(limit),
+      skip: Number(skip),
+      include: { plan: true },
     });
-
-    return ResponseApi.success(
-      res,
-      "Liste des abonnements",
-      200,
-      subscriptions
-    );
+    return ResponseApi.success(res, "Liste des abonnements", 200, subscriptions);
   } catch (error) {
     console.error(error);
     return ResponseApi.error(res, "Erreur serveur", 500);
   }
 };
+
+// Récupérer un abonnement par ID
+export const getSubscriptionById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const subscription = await prisma.subscription.findUnique({
+      where: { id: Number(id) },
+      include: { plan: true },
+    });
+    if (!subscription) return ResponseApi.error(res, "Abonnement introuvable", 404);
+    return ResponseApi.success(res, "Abonnement trouvé", 200, subscription);
+  } catch (error) {
+    console.error(error);
+    return ResponseApi.error(res, "Erreur serveur", 500);
+  }
+};  
 
 // Annuler un abonnement
 export const cancelSubscription = async (req: Request, res: Response) => {
@@ -80,6 +89,40 @@ export const cancelSubscription = async (req: Request, res: Response) => {
     });
 
     return ResponseApi.success(res, "Abonnement annulé", 200, subscription);
+  } catch (error) {
+    console.error(error);
+    return ResponseApi.error(res, "Erreur serveur", 500);
+  }
+};
+
+// Mettre à jour un abonnement
+export const updateSubscription = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { planId, renewalType } = req.body;
+
+    const subscription = await prisma.subscription.update({
+      where: { id: Number(id) },
+      data: { planId, renewalType },
+    });
+
+    return ResponseApi.success(res, "Abonnement mis à jour", 200, subscription);
+  } catch (error) {
+    console.error(error);
+    return ResponseApi.error(res, "Erreur serveur", 500);
+  }
+};
+
+// Supprimer un abonnement
+export const deleteSubscription = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const subscription = await prisma.subscription.delete({
+      where: { id: Number(id) },
+    });
+
+    return ResponseApi.success(res, "Abonnement supprimé", 200, subscription);
   } catch (error) {
     console.error(error);
     return ResponseApi.error(res, "Erreur serveur", 500);

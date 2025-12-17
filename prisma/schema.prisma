@@ -79,6 +79,8 @@ model User {
   photo          String?
   refreshToken   String?    @db.VarChar(1000)
   lastConnexion  DateTime?
+
+  provider        AuthProvider @default(LOCAL)
   // phoneVerified  Boolean?   @default(false)
 
   // OTP / 2FA
@@ -118,7 +120,10 @@ model User {
   payments          Payment[]              @relation("PaymentByUser")
  
 }
-
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
 
 enum UserStatus {
   active

@@ -8,13 +8,14 @@ import {
 } from "../controllers/AnimalTransferController.js";
 import { createAnimalTransferSchema, updateAnimalTransferSchema } from "../validations/animalTransfer.js";
 import { validator } from "../middlewares/validator.middleware.js";
-
+import { authenticate, authorizePermission } from "../middlewares/auth.js";
+import { Permission } from "../helpers/permissions.js";
 const router = Router();
 
-router.post("/", validator(createAnimalTransferSchema), createAnimalTransfer);
-router.get("/", getAllAnimalTransfers);
-router.get("/:id", getAnimalTransferById);
-router.put("/:id", validator(updateAnimalTransferSchema), updateAnimalTransfer);
-router.delete("/:id", deleteAnimalTransfer);
+router.post("/", authenticate, authorizePermission([Permission.CREATE_TRANSFER]), validator(createAnimalTransferSchema), createAnimalTransfer);
+router.get("/", authenticate, authorizePermission([Permission.READ_TRANSFER]), getAllAnimalTransfers);
+router.get("/:id", authenticate, authorizePermission([Permission.READ_TRANSFER]), getAnimalTransferById);
+router.put("/:id", authenticate, authorizePermission([Permission.UPDATE_TRANSFER]), validator(updateAnimalTransferSchema), updateAnimalTransfer);
+router.delete("/:id", authenticate, authorizePermission([Permission.DELETE_TRANSFER]), deleteAnimalTransfer);
 
 export default router;

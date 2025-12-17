@@ -1,74 +1,93 @@
-import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction, RequestHandler } from "express";
 import jwt from "jsonwebtoken";
 import prisma from "../models/prismaClient.js";
 import { Role } from "../typages/role.js";
-import { Permission } from "../typages/permissions.js";
+import { isPermissionCode, PermissionCode, Permission } from "../helpers/permissions.js";
 import env from "../config/env.js";
 
-export interface AuthenticatedRequest extends Request {
-  user?: {
-    id: number;
-    name?: string;
-    email: string;
-    role?: Role[];
-    status?: string;
-  };
-}
-
-export const authenticate = async (
-  req: AuthenticatedRequest,
+/**
+ * ============================
+ * AUTHENTICATION (JWT)
+ * ============================
+ */
+export const authenticate: RequestHandler = async (
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
   try {
-    const authHeader = req.header("Authorization");
+    const authHeader = req.get("Authorization");
 
-    if (!authHeader) return res.status(401).json({ error: "Token manquant." });
+    if (!authHeader) {
+      return res.status(401).json({ error: "Token manquant." });
+    }
 
-    const token = authHeader.replace("Bearer ", "");
+    const token = authHeader.replace(/^Bearer\s+/i, "");
 
     if (!token) {
       return res.status(401).json({ error: "Token manquant." });
     }
 
-    const decoded = jwt.verify(token, env.accessTokenSecretKey!) as any;
+    const decoded = jwt.verify(
+      token,
+      env.accessTokenSecretKey!
+    ) as { id_user: number };
 
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id_user },
+  const user = await prisma.user.findUnique({
+  where: { id: decoded.id_user },
+  select: {
+    id: true,
+    email: true,
+    name: true,
+    status: true,
+    roles: {
       select: {
-        id: true,
-        email: true,
-        status: true,
-        roles: {
-          select: { role: true },
+        role: {
+          select: {
+            name: true,
+          },
         },
       },
-    });
+    },
+  },
+});
 
     if (!user || user.status !== "active") {
-      return res
-        .status(401)
-        .json({ error: "Utilisateur invalide ou inactif." });
+      return res.status(401).json({
+        error: "Utilisateur invalide ou inactif.",
+      });
     }
 
-    req.user = {
-      id: user.id,
-      email: user.email,
-    };
+    // ✅ Grâce à express.d.ts
+  req.user = {
+  id: user.id,
+  email: user.email,
+  name: user.name ?? undefined,
+  status: user.status,
+  roles: user.roles.map((r) => r.role.name),
+};
+
 
     next();
-  } catch (err) {
+  } catch (error) {
     return res.status(401).json({ error: "Token invalide" });
   }
 };
 
-export const authorize = (roles: string[]) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+/**
+ * ============================
+ * AUTHORIZE BY ROLE (simple)
+ * ============================
+ */
+export const authorize = (roles: string[]): RequestHandler => {
+  return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ error: "Utilisateur non authentifié" });
     }
 
-    if (!roles.includes(req.user.role?.toString() || "")) {
+    const hasRole = req.user.roles.some(r => roles.includes(r));
+
+    if (!hasRole) {
       return res.status(403).json({
         error: "Accès interdit. Permissions insuffisantes.",
       });
@@ -78,13 +97,22 @@ export const authorize = (roles: string[]) => {
   };
 };
 
-export const authorizeRole = (roles: Role[]) => {
-  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+
+
+/**
+ * ============================
+ * AUTHORIZE BY ROLE ENUM
+ * ============================
+ */
+export const authorizeRole = (roles: Role[]): RequestHandler => {
+  return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: "Utilisateur non authentifié" });
     }
 
-    const hasRole = req.user.role?.some((role) => roles.includes(role));
+    const hasRole = req.user.roles?.some((r) =>
+      roles.includes(r as Role)
+    );
 
     if (!hasRole) {
       return res
@@ -96,25 +124,33 @@ export const authorizeRole = (roles: Role[]) => {
   };
 };
 
-export const authorizePermission = (requiredPermissions: string[]) => {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+/**
+ * ============================
+ * AUTHORIZE BY PERMISSIONS
+ * ============================
+ */
+export const authorizePermission = (
+  requiredPermissions: PermissionCode[]
+): RequestHandler => {
+  return async (req, res, next) => {
     try {
-      const userId = req.user?.id;
-      if (!userId)
+      if (!req.user?.id) {
         return res.status(401).json({ message: "Utilisateur non authentifié" });
+      }
 
-      // récupère les rôles + permissions depuis Prisma
+      // Récupère l'utilisateur avec ses permissions
       const user = await prisma.user.findUnique({
-        where: { id: userId },
+        where: { id: req.user.id },
         select: {
           roles: {
             select: {
               role: {
                 select: {
-                  name: true,
                   permissions: {
                     select: {
-                      permission: { select: { code: true } },
+                      permission: {
+                        select: { code: true },
+                      },
                     },
                   },
                 },
@@ -124,26 +160,30 @@ export const authorizePermission = (requiredPermissions: string[]) => {
         },
       });
 
-      if (!user)
+      if (!user) {
         return res.status(404).json({ message: "Utilisateur introuvable" });
+      }
 
-      // Extraire les permissions
-      const userPermissions = [
-        ...new Set(
-          user.roles.flatMap((ur: any) =>
-            ur.role.permissions.map((p: any) => p.permission.code)
-          )
-        ),
-      ];
+      // Valide et filtre les permissions de l'utilisateur
+      const userPermissions = new Set<PermissionCode>();
 
+      user.roles.forEach((ur) => {
+        ur.role.permissions.forEach((rp) => {
+          const code = rp.permission.code;
+          if (isPermissionCode(code)) {
+            userPermissions.add(code);
+          }
+        });
+      });
 
-      // Vérifier
-      const hasPermission = requiredPermissions.some((perm) =>
-        userPermissions.includes(perm)
+      // Vérifie que toutes les permissions requises sont présentes
+      const hasPermission = requiredPermissions.every((perm) =>
+        userPermissions.has(perm)
       );
 
-      if (!hasPermission)
+      if (!hasPermission) {
         return res.status(403).json({ message: "Permission refusée" });
+      }
 
       next();
     } catch (error) {

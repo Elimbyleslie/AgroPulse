@@ -3,7 +3,6 @@ import  prisma  from '../models/prismaClient.js'; // Assurez-vous que le chemin 
 import ResponseApi from '../helpers/response.js';
 import bcrypt from 'bcryptjs';
 import { logAction } from './audit.controller.js';
-import { AuthenticatedRequest } from '../middlewares/auth.js';
 import { User } from '../typages/user.js';
 
   // 🧩 Récupérer tous les utilisateurs
@@ -198,7 +197,7 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
 
   };
 
-export const getUserProfile = async (req: AuthenticatedRequest, res: Response) => {
+export const getUserProfile = async (req:Request, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: "Utilisateur non authentifié" });
@@ -237,7 +236,7 @@ export const getUserProfile = async (req: AuthenticatedRequest, res: Response) =
 /**
  * 🛠️ Mettre à jour le profil de l'utilisateur connecté
  */
-export const updateUserProfile = async (req: AuthenticatedRequest, res: Response) => {
+export const updateUserProfile = async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: "Utilisateur non authentifié" });

@@ -8,13 +8,14 @@ import {
 } from "../controllers/AnimalWeightController.js";
 import { createAnimalWeightSchema, updateAnimalWeightSchema } from "../validations/animalWeight.js";
 import { validator } from "../middlewares/validator.middleware.js";
+import { authenticate, authorizePermission } from "../middlewares/auth.js";
+import { Permission } from "../helpers/permissions.js";
 
 const router = Router();
 
-router.post("/", validator(createAnimalWeightSchema), createAnimalWeight);
-router.get("/", getAllAnimalWeights);
-router.get("/:id", getAnimalWeightById);
-router.put("/:id", validator(updateAnimalWeightSchema), updateAnimalWeight);
-router.delete("/:id", deleteAnimalWeight);
-
+router.post("/", authenticate, authorizePermission([Permission.CREATE_WEIGHT]), validator(createAnimalWeightSchema), createAnimalWeight);
+router.get("/", authenticate, authorizePermission([Permission.READ_WEIGHT]), getAllAnimalWeights);
+router.get("/:id", authenticate, authorizePermission([Permission.READ_WEIGHT]), getAnimalWeightById);
+router.put("/:id", authenticate, authorizePermission([Permission.UPDATE_WEIGHT]), validator(updateAnimalWeightSchema), updateAnimalWeight);
+router.delete("/:id", authenticate, authorizePermission([Permission.DELETE_WEIGHT]), deleteAnimalWeight);
 export default router;
