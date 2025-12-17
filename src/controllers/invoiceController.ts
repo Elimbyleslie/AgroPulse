@@ -40,6 +40,24 @@ export const createInvoice = async (req: Request, res: Response) => {
   }
 };
 
+// Récupérer une facture par ID
+export const getInvoiceById = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: Number(id) },
+      include: { subscription: true },
+    });
+    if (!invoice) {
+      return ResponseApi.error(res, "Facture non trouvée", 404);
+    }
+    return ResponseApi.success(res, "Facture trouvée", 200, invoice);
+  } catch (error) {
+    console.error(error);
+    return ResponseApi.error(res, "Erreur serveur", 500);
+  }
+};
+
 // Lister toutes les factures d'une organisation
 export const getAllOrganizationInvoices = async (
   req: Request,

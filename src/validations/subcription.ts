@@ -1,6 +1,6 @@
 import  * as yup from 'yup';
 
-export const subscriptionSchema = yup.object().shape({
+export const createSubscriptionSchema = yup.object().shape({
     name: yup.string().required("Nom est obligatoire"),
     price: yup.number().required("Prix est obligatoire"),
     duration: yup.number().required("Duree est obligatoire"),

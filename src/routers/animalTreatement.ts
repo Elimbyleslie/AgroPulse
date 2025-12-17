@@ -12,13 +12,14 @@ import {
   createAnimalTreatmentSchema,
   updateAnimalTreatmentSchema,
 } from "../validations/animalTreatement.js";
-
+import { authenticate, authorizePermission } from "../middlewares/auth.js";
+import { Permission } from "../helpers/permissions.js";
 const router = Router();
 
-router.post("/", validator(createAnimalTreatmentSchema), createAnimalTreatment);
-router.get("/", getAllAnimalTreatments);
-router.get("/:id", getAnimalTreatmentById);
-router.put("/:id", validator(updateAnimalTreatmentSchema), updateAnimalTreatment);
-router.delete("/:id", deleteAnimalTreatment);
+router.post("/", authenticate, authorizePermission([Permission.CREATE_TREATMENT]), validator(createAnimalTreatmentSchema), createAnimalTreatment);
+router.get("/", authenticate, authorizePermission([Permission.READ_TREATMENT]), getAllAnimalTreatments);
+router.get("/:id", authenticate, authorizePermission([Permission.READ_TREATMENT]), getAnimalTreatmentById);
+router.put("/:id", authenticate, authorizePermission([Permission.UPDATE_TREATMENT]), validator(updateAnimalTreatmentSchema), updateAnimalTreatment);
+router.delete("/:id", authenticate, authorizePermission([Permission.DELETE_TREATMENT]), deleteAnimalTreatment);
 
 export default router;

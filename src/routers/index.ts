@@ -43,6 +43,7 @@ import inventory from './inventory.js';
 import invoice from './invoice.router.js';
 import feedPurchase from './feedPurchase.js';
 import supplier from './supplier.js';
+import subscription from './subscription.router.js';
 
 
 const router={
@@ -90,7 +91,8 @@ const router={
     inventory,
     invoice,
     feedPurchase,
-    supplier
+    supplier,
+    subscription
 
 }
 export default router;

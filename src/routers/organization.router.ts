@@ -8,15 +8,16 @@ import {
   } from '../controllers/organizationController.js';
 import { createOrganizationSchema } from '../validations/ogarnization.js';  
 import { validator } from '../middlewares/validator.middleware.js';
-import { authenticate, authorize } from '../middlewares/auth.js';
+import { authenticate, authorizePermission } from '../middlewares/auth.js';
+import { Permission } from '../helpers/permissions.js';
 
 const router = express.Router();
 
 // Routes pour la gestion des organisations
-router.post('/', validator(createOrganizationSchema), createOrganization);
-router.get('/', getOrganizations,);
-router.get('/:id', getOrganizationById);
-router.put('/:id', updateOrganization);
-router.delete('/:id', deleteOrganization);
+router.post('/', authenticate, authorizePermission([Permission.CREATE_ORGANIZATION]), validator(createOrganizationSchema), createOrganization);
+router.get('/', authenticate, authorizePermission([Permission.READ_ORGANIZATION]), getOrganizations);
+router.get('/:id', authenticate, authorizePermission([Permission.READ_ORGANIZATION]), getOrganizationById);
+router.put('/:id', authenticate, authorizePermission([Permission.UPDATE_ORGANIZATION]), updateOrganization);
+router.delete('/:id', authenticate, authorizePermission([Permission.DELETE_ORGANIZATION]), deleteOrganization);
 
 export default router;

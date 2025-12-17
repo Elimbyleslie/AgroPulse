@@ -100,9 +100,10 @@ export const login = async (
 
     // 5️⃣ Retourner la réponse
     return res.status(200).json(
-      Utilities.successReponse(200, "Connexion réussie", {
-        refreshToken,
+      Utilities.successReponse(200, "Connexion réussie", { token:{
         accessToken,
+        refreshToken,
+      },
         user: {
           id_user: user.id,
           nom: user.name,
@@ -172,7 +173,7 @@ export const register = async (
     if (existingUser) {
       return res
         .status(409)
-        .json(Utilities.errorResponse(409, "User already exists"));
+        .json(Utilities.errorResponse(409, "mots de passe deja utilisé"));
     }
     // Vérification mot de passe + confirmation
     if (data.password !== data.passwordConfirmation) {
@@ -188,17 +189,7 @@ export const register = async (
     // Hash du mot de passe
     const hashedPassword = await Utilities.hashPassword(data.password);
 
-    // Générer secret + OTP
-    const secretKey = speakeasy.generateSecret({ name: data.email }).base32;
-    const otp = speakeasy.totp({
-      secret: secretKey,
-      encoding: "base32",
-      digits: 5,
-      step: 600,
-    });
-    console.log("====================================");
-    console.log(secretKey, otp);
-    console.log("====================================");
+   
     // Gérer l'upload de la photo de profil si présente
     let profilePhoto = "/uploads/default_profile.png";
     if (req.files?.photo) {
@@ -218,24 +209,19 @@ export const register = async (
         password: hashedPassword,
         phone: data.phone,
         photo: profilePhoto,
-        otp,
-        secretOtp: secretKey,
         otpExpiresAt: new Date(Date.now() + 600000),
       },  
     });
 
      await assignSuperAdminIfEligible(user.id);
-    // Envoi email OTP
+    // Envoi email de bienvenue
     await sendMail({
       to: data.email,
       name: data.name,
       type: "welcome",
-      otp: Number(otp),
       subject: "Validate your account",
     });
-    console.log("====================================");
-    console.log("OTP sent:", otp);
-    console.log("====================================");
+   
 
     // Retirer les données sensibles avant de renvoyer
     const safeUser = {
@@ -250,7 +236,7 @@ export const register = async (
       .json(
         Utilities.successReponse(
           201,
-          "User created successfully. OTP sent to email.",
+          "User created successfully.welcome email send .",
           safeUser
         )
       );

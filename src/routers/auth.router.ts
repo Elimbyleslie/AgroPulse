@@ -1,4 +1,5 @@
 import { Router } from "express";
+import passport from "passport";
 import {
   login,
   refreshToken,
@@ -10,37 +11,70 @@ import {
   updatePassword,
   sendEmailVerificationOTP,
   verifyEmailOTP,
-  changePassword
-
+  changePassword,
 } from "../controllers/auth.controller.js";
 import { validator } from "../middlewares/validator.middleware.js";
 import {
-  loginValidation,  
+  loginValidation,
   registerUserValidation,
   optValidation,
   resendOptValidation,
   resetPasswordValidation,
-sendEmailVerificationOTPValidation,
-verifyEmailOTPValidation,
-changePasswordValidation,
-
-
-  
+  sendEmailVerificationOTPValidation,
+  verifyEmailOTPValidation,
+  changePasswordValidation,
 } from "../validations/auth.js";
-
 const router = Router();
 
 // Routes publiques
 router.post("/login", validator(loginValidation), login);
 router.post("/register", validator(registerUserValidation), register);
-router.post("/verify-otp", validator(optValidation),verifyOtp,);
+router.post("/verify-otp", validator(optValidation), verifyOtp);
 router.post("/resend-otp", validator(resendOptValidation), resendOtp);
-router.post("/verify-email-otp",validator(verifyEmailOTPValidation), verifyEmailOTP);
-router.post("/send-email-verification-otp",validator(sendEmailVerificationOTPValidation), sendEmailVerificationOTP);
-router.post("/reset-password",validator(resetPasswordValidation),resetPassword);
-router.post("/change-password",validator(changePasswordValidation), changePassword);
+router.post(
+  "/verify-email-otp",
+  validator(verifyEmailOTPValidation),
+  verifyEmailOTP
+);
+router.post(
+  "/send-email-verification-otp",
+  validator(sendEmailVerificationOTPValidation),
+  sendEmailVerificationOTP
+);
+router.post(
+  "/reset-password",
+  validator(resetPasswordValidation),
+  resetPassword
+);
+router.post(
+  "/change-password",
+  validator(changePasswordValidation),
+  changePassword
+);
 router.post("/refresh-token", refreshToken);
 router.post("/logout", logout);
 router.post("/update-password", updatePassword);
+
+router.get(
+  "/google",
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+  })
+);
+
+router.get(
+  "/google/callback",
+  passport.authenticate("google", {
+    session: false,
+    failureRedirect: "/login",
+  }),
+  (req, res) => {
+    const { token } = req.user as unknown as { token: string };
+
+    res.redirect(
+      `${process.env.FRONTEND_URL}/auth/google-success?token=${token}`
+    );
+  }
+);
 
 export default router;
