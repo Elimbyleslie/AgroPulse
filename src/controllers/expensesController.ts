@@ -4,7 +4,11 @@ import ResponseApi from "../helpers/response.js";
 import { Expense } from "../typages/expenseSale.js";
 
 // CREATE
-export const createExpense = async (req: Request<{}, {}, Expense>, res: Response, next: NextFunction) => {
+export const createExpense = async (
+  req: Request<{}, {}, Expense>,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const expense = await prisma.expense.create({ data: req.body });
     return ResponseApi.success(res, "Dépense créée", 201, expense);
@@ -15,9 +19,14 @@ export const createExpense = async (req: Request<{}, {}, Expense>, res: Response
 
 // GET ALL avec pagination et filtre par farmId et categoryId
 export const getAllExpenses = async (
-  req: Request<{}, {}, {}, { farmId?: string; categoryId?: string; page?: string; limit?: string }>,
+  req: Request<
+    {},
+    {},
+    {},
+    { farmId?: string; categoryId?: string; page?: string; limit?: string }
+  >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { farmId, categoryId } = req.query;
@@ -41,7 +50,13 @@ export const getAllExpenses = async (
 
     return ResponseApi.success(res, "Liste des dépenses récupérée", 200, {
       expenses,
-      pagination: { currentPage: page, previousPage: page > 1 ? page - 1 : null, nextPage: page * limit < totalItems ? page + 1 : null, totalItems, totalPage: Math.ceil(totalItems / limit) },
+      pagination: {
+        currentPage: page,
+        previousPage: page > 1 ? page - 1 : null,
+        nextPage: page * limit < totalItems ? page + 1 : null,
+        totalItems,
+        totalPage: Math.ceil(totalItems / limit),
+      },
     });
   } catch (error) {
     next(error);
@@ -49,9 +64,16 @@ export const getAllExpenses = async (
 };
 
 // GET BY ID
-export const getExpenseById = async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+export const getExpenseById = async (
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
-    const expense = await prisma.expense.findUnique({ where: { id: Number(req.params.id) }, include: { farm: true, category: true } });
+    const expense = await prisma.expense.findUnique({
+      where: { id: Number(req.params.id) },
+      include: { farm: true, category: true },
+    });
     if (!expense) return ResponseApi.error(res, "Dépense non trouvée", 404);
     return ResponseApi.success(res, "Dépense récupérée", 200, expense);
   } catch (error) {
@@ -60,23 +82,38 @@ export const getExpenseById = async (req: Request<{ id: string }>, res: Response
 };
 
 // UPDATE
-export const updateExpense = async (req: Request<{ id: string }, {}, Partial<Expense>>, res: Response, next: NextFunction) => {
+export const updateExpense = async (
+  req: Request<{ id: string }, {}, Partial<Expense>>,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
-    const updated = await prisma.expense.update({ where: { id: Number(req.params.id) }, data: req.body });
+    const updated = await prisma.expense.update({
+      where: { id: Number(req.params.id) },
+      data: req.body,
+    });
     return ResponseApi.success(res, "Dépense mise à jour", 200, updated);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Dépense non trouvée", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Dépense non trouvée", 404);
     next(error);
   }
 };
 
 // DELETE
-export const deleteExpense = async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+export const deleteExpense = async (
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
-    const deleted = await prisma.expense.delete({ where: { id: Number(req.params.id) } });
+    const deleted = await prisma.expense.delete({
+      where: { id: Number(req.params.id) },
+    });
     return ResponseApi.success(res, "Dépense supprimée", 200, deleted);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Dépense non trouvée", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Dépense non trouvée", 404);
     next(error);
   }
 };

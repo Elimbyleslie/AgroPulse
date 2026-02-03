@@ -1,7 +1,5 @@
-
-
-export interface PermissionEntity  {
-id: number;
-code: string;
-description?: string;
+export interface PermissionEntity {
+  id: number;
+  code: string;
+  description?: string;
 }

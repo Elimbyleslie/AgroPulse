@@ -9,7 +9,7 @@ import { Species } from "../typages/species.js";
 export const createSpecies = async (
   req: Request<{}, {}, Species>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { code, name } = req.body;
@@ -34,7 +34,7 @@ export const createSpecies = async (
 export const getAllSpecies = async (
   req: Request<{}, {}, {}, { search?: string; page?: string; limit?: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { search } = req.query;
@@ -78,7 +78,7 @@ export const getAllSpecies = async (
 export const getSpeciesById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -107,11 +107,12 @@ export const getSpeciesById = async (
 export const updateSpecies = async (
   req: Request<{ id: string }, {}, Partial<Species>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
-    if (!id || isNaN(Number(id))) return ResponseApi.error(res, "ID invalide", 400);
+    if (!id || isNaN(Number(id)))
+      return ResponseApi.error(res, "ID invalide", 400);
 
     const { id: _, ...body } = req.body;
 
@@ -120,7 +121,7 @@ export const updateSpecies = async (
       name: body.name,
     };
     Object.keys(updateData).forEach(
-      key => updateData[key] === undefined && delete updateData[key]
+      (key) => updateData[key] === undefined && delete updateData[key],
     );
 
     const updated = await prisma.species.update({
@@ -143,17 +144,23 @@ export const updateSpecies = async (
 export const deleteSpecies = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
-    if (!id || isNaN(Number(id))) return ResponseApi.error(res, "ID invalide", 400);
+    if (!id || isNaN(Number(id)))
+      return ResponseApi.error(res, "ID invalide", 400);
 
     const deleted = await prisma.species.delete({
       where: { id: Number(id) },
     });
 
-    return ResponseApi.success(res, "Espèce supprimée avec succès", 200, deleted);
+    return ResponseApi.success(
+      res,
+      "Espèce supprimée avec succès",
+      200,
+      deleted,
+    );
   } catch (error: any) {
     if (error.code === "P2025") {
       return ResponseApi.error(res, "Espèce non trouvée", 404);

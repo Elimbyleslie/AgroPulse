@@ -6,7 +6,7 @@ import ResponseApi from "../helpers/response.js";
 export const createAlert = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const alert = await prisma.alert.create({
@@ -28,7 +28,7 @@ export const getAllAlerts = async (
     { farmId?: string; status?: string; page?: string; limit?: string }
   >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { farmId, status } = req.query;
@@ -67,7 +67,7 @@ export const getAllAlerts = async (
 export const getAlertById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const alert = await prisma.alert.findUnique({
@@ -85,7 +85,7 @@ export const getAlertById = async (
 export const updateAlert = async (
   req: Request<{ id: string }, {}, any>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const updated = await prisma.alert.update({
@@ -105,7 +105,7 @@ export const updateAlert = async (
 export const deleteAlert = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const deleted = await prisma.alert.delete({

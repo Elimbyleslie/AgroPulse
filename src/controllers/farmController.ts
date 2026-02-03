@@ -8,31 +8,39 @@ import path from "path";
 // Creation d'une ferme
 
 export const createFarm = async (
-  req: Request < any, any, Farm > ,
+  req: Request<any, any, Farm>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const data = req.body;
 
     // Gérer l'upload de la photo si présente
-    let photoPath = '';
+    let photoPath = "";
     if (req.files?.photo) {
-      photoPath = await Utilities.saveFile(req.files.photo as any, 'uploads/farms');
+      photoPath = await Utilities.saveFile(
+        req.files.photo as any,
+        "uploads/farms",
+      );
       photoPath = Utilities.resolveFileUrl(req, photoPath);
     }
-// Vérifier l'unicité du nom de la ferme
-    await prisma.farm.findFirst({where:{name:data.name}}).then(async(existingFarm)=>{
-    if(existingFarm){
-      ResponseApi.error(res, "une ferme avec ce nom existe deja.", 400);
-      return;
-    }
+    // Vérifier l'unicité du nom de la ferme
+    const existingFarm = await prisma.farm.findFirst({
+      where: {
+        name: data.name,
+      },
     });
+    if (existingFarm) {
+      return ResponseApi.error(res, "Une ferme existe deja avec ce nom", 409);
+    }
     // Vérifier que l'organisation existe
-    if (!(await prisma.organization.findUnique({ where: { id: Number(data.organizationId) } }))) {
+    if (
+      !(await prisma.organization.findUnique({
+        where: { id: Number(data.organizationId) },
+      }))
+    ) {
       return ResponseApi.error(res, " cette  organisation n'existe pas", 400);
     }
-
 
     const farm = await prisma.farm.create({
       data: {
@@ -42,22 +50,23 @@ export const createFarm = async (
         location: data.location,
         photo: photoPath,
         areaUnit: data.areaUnit,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        
+        managerId: req.user?.id ?? undefined as unknown as number ,
       },
     });
 
     ResponseApi.success(res, "Votre ferme a été créée avec succès", 201, farm);
   } catch (error: any) {
     if (error.code === "P2002") {
-      ResponseApi.error(res, "Une ferme existe déjà avec ce nom, veuillez choisir un autre nom", 409);
+      ResponseApi.error(
+        res,
+        "Une ferme existe déjà avec ce nom, veuillez choisir un autre nom",
+        409,
+      );
     } else {
       next(error);
     }
   }
 };
-
 
 // Recuperation de toutes les fermes
 
@@ -75,26 +84,34 @@ export const getAllFarm = async (
     }
   >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { search, startDate, endDate } = req.query;
-
+    const userId = req.user?.id;
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const offset = (page - 1) * limit;
 
-    // --- Construction dynamique du filtre ---
     const where: any = {};
 
-    if (search) {
-      where.name = { contains: search, mode: "insensitive" };
+    if (search && search !== "undefined" && search.trim() !== "") {
+      where.name = {
+        contains: search.trim(),
+      };
     }
 
-    if (startDate || endDate) {
+    if (
+      (startDate && startDate !== "undefined") ||
+      (endDate && endDate !== "undefined")
+    ) {
       where.createdAt = {};
-      if (startDate) where.createdAt.gte = new Date(startDate);
-      if (endDate) where.createdAt.lte = new Date(endDate);
+      if (startDate && startDate !== "undefined") {
+        where.createdAt.gte = new Date(startDate);
+      }
+      if (endDate && endDate !== "undefined") {
+        where.createdAt.lte = new Date(endDate);
+      }
     }
 
     // --- Fetch des données ---
@@ -102,7 +119,11 @@ export const getAllFarm = async (
       skip: offset,
       take: limit,
       orderBy: { createdAt: "desc" },
-      where,
+      where:{
+        organization :{
+          ownerId: userId
+        }
+      }
     });
 
     const totalItems = await prisma.farm.count({ where });
@@ -122,22 +143,27 @@ export const getAllFarm = async (
       },
     });
   } catch (error) {
-    ResponseApi.error(
-      res,
-      "Impossible de récupérer la liste des fermes",
-      422
-    );
+    // ✅ Ne pas envoyer deux réponses
+    console.error("Erreur getAllFarm:", error);
+
+    // Vérifier si une réponse a déjà été envoyée
+    if (!res.headersSent) {
+      ResponseApi.error(
+        res,
+        "Impossible de récupérer la liste des fermes",
+        422,
+      );
+    }
     next(error);
   }
 };
-
 
 // recuperer une ferme par identifiant
 
 export const getFarmById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -159,15 +185,14 @@ export const getFarmById = async (
 
     // Succès
     return ResponseApi.success(res, "Ferme trouvée avec succès", 200, farm);
-
   } catch (error) {
     next(error);
   }
 };
- export const getFarmByIdAndRelations = async (
+export const getFarmByIdAndRelations = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -209,13 +234,7 @@ export const getFarmById = async (
     }
 
     // Réponse
-    return ResponseApi.success(
-      res,
-      "Ferme récupérée avec succès",
-      200,
-      farm
-    );
-
+    return ResponseApi.success(res, "Ferme récupérée avec succès", 200, farm);
   } catch (error) {
     next(error);
   }
@@ -225,7 +244,7 @@ export const getFarmById = async (
 export const updateFarm = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -251,7 +270,7 @@ export const updateFarm = async (
         const oldPhotoPath = path.join(
           process.cwd(),
           "public",
-          existingFarm.photo.replace(/^\/+/, "")
+          existingFarm.photo.replace(/^\/+/, ""),
         );
         try {
           await fs.unlink(oldPhotoPath);
@@ -261,7 +280,10 @@ export const updateFarm = async (
       }
 
       // Sauvegarder la nouvelle photo
-      const photoPath = await Utilities.saveFile(req.files.photo as any, "uploads/farms");
+      const photoPath = await Utilities.saveFile(
+        req.files.photo as any,
+        "uploads/farms",
+      );
       data.photo = Utilities.resolveFileUrl(req, photoPath);
     }
 
@@ -281,12 +303,11 @@ export const updateFarm = async (
   }
 };
 
-
 // supprimer une ferme
 export const deleteFarm = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -305,7 +326,7 @@ export const deleteFarm = async (
       res,
       "Ferme supprimée avec succès",
       200,
-      deletedFarm
+      deletedFarm,
     );
   } catch (error: any) {
     // Erreur Prisma si l'ID n'existe pas
@@ -317,3 +338,19 @@ export const deleteFarm = async (
   }
 };
 
+// recuperer les fermes dont l'user est proprietaire ou celles dont il a ete affilié
+
+export const getMyFarms = (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    const farms = prisma.farm.findMany({
+      where: {
+        OR: [{ members: { some: { userId } } }, { managerId: userId }],
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    return ResponseApi.success(res, "Fermes rencontrées", 200, farms);
+  } catch (error) {
+    next(error);
+  }
+};

@@ -1,13 +1,9 @@
 import * as yup from "yup";
 
 export const createApiKeySchema = yup.object({
-  organizationId: yup
-    .number()
-    .required("organizationId est obligatoire"),
+  organizationId: yup.number().required("organizationId est obligatoire"),
 
-  key: yup
-    .string()
-    .required("La clé API est obligatoire"),
+  key: yup.string().required("La clé API est obligatoire"),
 
   expiresAt: yup
     .date()

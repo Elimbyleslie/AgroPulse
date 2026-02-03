@@ -2,8 +2,13 @@ import { Request, Response, NextFunction, RequestHandler } from "express";
 import jwt from "jsonwebtoken";
 import prisma from "../models/prismaClient.js";
 import { Role } from "../typages/role.js";
-import { isPermissionCode, PermissionCode, Permission } from "../helpers/permissions.js";
+import {
+  isPermissionCode,
+  PermissionCode,
+  Permission,
+} from "../helpers/permissions.js";
 import env from "../config/env.js";
+import ResponseApi from "../helpers/response.js";
 
 /**
  * ============================
@@ -13,44 +18,57 @@ import env from "../config/env.js";
 export const authenticate: RequestHandler = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
+    if (req.path.startsWith("/auth")) {
+      return next();
+    }
+
     const authHeader = req.get("Authorization");
 
     if (!authHeader) {
       return res.status(401).json({ error: "Token manquant." });
     }
 
-    const token = authHeader.replace(/^Bearer\s+/i, "");
+    // ✅ Vérification du format "Bearer token"
+    if (!authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ error: "Format de token invalide." });
+    }
+
+    const token = authHeader.split(" ")[1]?.trim().replace(/['"]+/g, "");
 
     if (!token) {
       return res.status(401).json({ error: "Token manquant." });
     }
 
-    const decoded = jwt.verify(
-      token,
-      env.accessTokenSecretKey!
-    ) as { id_user: number };
+    // ✅ Vérification basique du format JWT (3 parties séparées par des points)
+    if (token.split('.').length !== 3) {
+      return res.status(401).json({ error: "Token malformé." });
+    }
 
-  const user = await prisma.user.findUnique({
-  where: { id: decoded.id_user },
-  select: {
-    id: true,
-    email: true,
-    name: true,
-    status: true,
-    roles: {
+    const decoded = jwt.verify(token, env.accessTokenSecretKey!) as {
+      id_user: number;
+    };
+
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id_user },
       select: {
-        role: {
+        id: true,
+        email: true,
+        name: true,
+        status: true,
+        roles: {
           select: {
-            name: true,
+            role: {
+              select: {
+                name: true,
+              },
+            },
           },
         },
       },
-    },
-  },
-});
+    });
 
     if (!user || user.status !== "active") {
       return res.status(401).json({
@@ -58,19 +76,29 @@ export const authenticate: RequestHandler = async (
       });
     }
 
-    // ✅ Grâce à express.d.ts
-  req.user = {
-  id: user.id,
-  email: user.email,
-  name: user.name ?? undefined,
-  status: user.status,
-  roles: user.roles.map((r) => r.role.name),
-};
-
+    req.user = {
+      id: user.id,
+      email: user.email,
+      name: user.name ?? undefined,
+      status: user.status,
+      roles: user.roles.map((r) => r.role.name),
+    };
 
     next();
   } catch (error) {
-    return res.status(401).json({ error: "Token invalide" });
+    console.error("Erreur middleware authenticate:", error);
+    
+    // ✅ Gestion spécifique des erreurs JWT
+    if (error instanceof jwt.JsonWebTokenError) {
+      return res.status(401).json({ error: "Token invalide." });
+    }
+    if (error instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({ error: "Token expiré." });
+    }
+    
+    return res
+      .status(500)
+      .json({ error: "Erreur interne lors de l'authentification." });
   }
 };
 
@@ -82,10 +110,10 @@ export const authenticate: RequestHandler = async (
 export const authorize = (roles: string[]): RequestHandler => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ error: "Utilisateur non authentifié" });
+      return res.status(401).json({ error: "Utilisateur non 0000" });
     }
 
-    const hasRole = req.user.roles.some(r => roles.includes(r));
+    const hasRole = req.user.roles.some((r) => roles.includes(r));
 
     if (!hasRole) {
       return res.status(403).json({
@@ -97,8 +125,6 @@ export const authorize = (roles: string[]): RequestHandler => {
   };
 };
 
-
-
 /**
  * ============================
  * AUTHORIZE BY ROLE ENUM
@@ -107,12 +133,10 @@ export const authorize = (roles: string[]): RequestHandler => {
 export const authorizeRole = (roles: Role[]): RequestHandler => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return res.status(401).json({ error: "Utilisateur non authentifié" });
+      return res.status(401).json({ error: "Utilisateur yoooo" });
     }
 
-    const hasRole = req.user.roles?.some((r) =>
-      roles.includes(r as Role)
-    );
+    const hasRole = req.user.roles?.some((r) => roles.includes(r as Role));
 
     if (!hasRole) {
       return res
@@ -130,12 +154,12 @@ export const authorizeRole = (roles: Role[]): RequestHandler => {
  * ============================
  */
 export const authorizePermission = (
-  requiredPermissions: PermissionCode[]
+  requiredPermissions: PermissionCode[],
 ): RequestHandler => {
   return async (req, res, next) => {
     try {
       if (!req.user?.id) {
-        return res.status(401).json({ message: "Utilisateur non authentifié" });
+        return res.status(401).json({ message: "Utilisateur non yooo" });
       }
 
       // Récupère l'utilisateur avec ses permissions
@@ -178,7 +202,7 @@ export const authorizePermission = (
 
       // Vérifie que toutes les permissions requises sont présentes
       const hasPermission = requiredPermissions.every((perm) =>
-        userPermissions.has(perm)
+        userPermissions.has(perm),
       );
 
       if (!hasPermission) {
@@ -193,3 +217,33 @@ export const authorizePermission = (
   };
 };
 
+export const getDashboardStatus = async (req: Request, res: Response) => {
+  const user = req.user;
+
+  if (user?.roles?.includes("FARM_MANAGER")) {
+    // Manager : peut créer / gérer
+    const farmCount = await prisma.farm.count({
+      where: { managerId: user.id },
+    });
+    return ResponseApi.success(res, "Dashboard status", 200, {
+      role: user.roles,
+      canCreateFarm: true,
+      hasFarm: farmCount > 0,
+    });
+  }
+
+  if (user?.roles?.includes("FARMER")) {
+    // Membre : pas de création de ferme, seulement accès affilié
+    const affiliationCount = await prisma.farmUser.count({
+      where: { userId: user.id },
+    });
+    return ResponseApi.success(res, "Dashboard status", 200, {
+      role: user.roles,
+      canCreateFarm: false,
+      hasFarm: false,
+      isAffiliated: affiliationCount > 0,
+    });
+  }
+
+  return ResponseApi.error(res, "Rôle inconnu", 403);
+};

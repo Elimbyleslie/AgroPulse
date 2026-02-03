@@ -9,7 +9,7 @@ import { Purchase } from "../typages/purchase.js";
 export const createPurchase = async (
   req: Request<{}, {}, Purchase>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { name, farmId, supplierId, totalAmount, purchaseDate, description } =
@@ -51,7 +51,7 @@ export const getAllPurchases = async (
     { search?: string; farmId?: string; page?: string; limit?: string }
   >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { search, farmId } = req.query;
@@ -104,7 +104,7 @@ export const getAllPurchases = async (
 export const getPurchaseById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -137,7 +137,7 @@ export const getPurchaseById = async (
 export const updatePurchase = async (
   req: Request<{ id: string }, {}, Partial<Purchase>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -166,7 +166,7 @@ export const updatePurchase = async (
 export const deletePurchase = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;

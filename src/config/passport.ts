@@ -1,6 +1,7 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import prisma from "../models/prismaClient";
+import { Request, Response } from "express";
+import prisma from "../models/prismaClient.js";
 import jwt from "jsonwebtoken";
 
 passport.use(
@@ -8,7 +9,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      callbackURL: "/auth/google/callback",
+      callbackURL: `${process.env.BACKEND_URL}/api/auth/google/callback`,
     },
     async (_accessToken, _refreshToken, profile, done) => {
       try {
@@ -31,17 +32,23 @@ passport.use(
           });
         }
 
-        const token = jwt.sign(
-          { id: user.id },
-          process.env.JWT_SECRET!,
-          { expiresIn: "7d" }
-        );
+     
+        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET!, {
+          expiresIn: "7d",
+        });
 
-      return done(null, { ...user, token } as any);
-
+        return done(null, { ...user, token } as any);
       } catch (error) {
         done(error as Error, false);
       }
-    }
-  )
+    },
+  ),
 );
+
+passport.serializeUser((user: any, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((obj: any, done) => {
+  done(null, obj);
+});

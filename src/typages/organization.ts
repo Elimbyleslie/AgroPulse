@@ -1,9 +1,9 @@
-
 export interface Organization {
-    id:number;
-    name:string;
-    address:string;
-    ownerName:string;
-    contactEmail:string;
-    contactPhone:string;
+  id: number;
+  name: string;
+  address: string;
+  ownerName: string;
+  ownerId: number;
+  email: string;
+  phone: string;
 }

@@ -1,6 +1,5 @@
 import { SupplierCategory } from "../../generated/prisma/enums.js";
 
-
 export interface Supplier {
   id?: number;
   category: SupplierCategory;

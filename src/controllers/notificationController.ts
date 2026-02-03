@@ -8,7 +8,7 @@ import ResponseApi from "../helpers/response.js";
 export const createNotification = async (
   req: Request<{}, {}, { userId: number; title: string; message: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { userId, title, message } = req.body;
@@ -27,9 +27,14 @@ export const createNotification = async (
  * GET ALL
  */
 export const getAllNotifications = async (
-  req: Request<{}, {}, {}, { userId?: string; read?: string; page?: string; limit?: string }>,
+  req: Request<
+    {},
+    {},
+    {},
+    { userId?: string; read?: string; page?: string; limit?: string }
+  >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { userId, read } = req.query;
@@ -71,7 +76,7 @@ export const getAllNotifications = async (
 export const getNotificationById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const id = Number(req.params.id);
@@ -85,7 +90,12 @@ export const getNotificationById = async (
       return ResponseApi.error(res, "Notification introuvable", 404);
     }
 
-    return ResponseApi.success(res, "Notification récupérée", 200, notification);
+    return ResponseApi.success(
+      res,
+      "Notification récupérée",
+      200,
+      notification,
+    );
   } catch (error) {
     next(error);
   }
@@ -97,7 +107,7 @@ export const getNotificationById = async (
 export const updateNotification = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const id = Number(req.params.id);
@@ -107,7 +117,12 @@ export const updateNotification = async (
       data: req.body,
     });
 
-    return ResponseApi.success(res, "Notification mise à jour", 200, notification);
+    return ResponseApi.success(
+      res,
+      "Notification mise à jour",
+      200,
+      notification,
+    );
   } catch (error) {
     next(error);
   }
@@ -119,7 +134,7 @@ export const updateNotification = async (
 export const deleteNotification = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const id = Number(req.params.id);
@@ -138,7 +153,7 @@ export const deleteNotification = async (
 export const markNotificationAsRead = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const id = Number(req.params.id);
@@ -148,7 +163,12 @@ export const markNotificationAsRead = async (
       data: { read: true },
     });
 
-    return ResponseApi.success(res, "Notification marquée comme lue", 200, notification);
+    return ResponseApi.success(
+      res,
+      "Notification marquée comme lue",
+      200,
+      notification,
+    );
   } catch (error) {
     next(error);
   }
@@ -160,7 +180,7 @@ export const markNotificationAsRead = async (
 export const markNotificationAsUnread = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const id = Number(req.params.id);
@@ -170,7 +190,12 @@ export const markNotificationAsUnread = async (
       data: { read: false },
     });
 
-    return ResponseApi.success(res, "Notification marquée comme non lue", 200, notification);
+    return ResponseApi.success(
+      res,
+      "Notification marquée comme non lue",
+      200,
+      notification,
+    );
   } catch (error) {
     next(error);
   }
@@ -182,7 +207,7 @@ export const markNotificationAsUnread = async (
 export const markAllAsRead = async (
   req: Request<{ userId: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = Number(req.params.userId);
@@ -192,7 +217,11 @@ export const markAllAsRead = async (
       data: { read: true },
     });
 
-    return ResponseApi.success(res, "Toutes les notifications ont été marquées comme lues", 200);
+    return ResponseApi.success(
+      res,
+      "Toutes les notifications ont été marquées comme lues",
+      200,
+    );
   } catch (error) {
     next(error);
   }
@@ -204,7 +233,7 @@ export const markAllAsRead = async (
 export const getUnreadCount = async (
   req: Request<{ userId: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = Number(req.params.userId);
@@ -213,7 +242,9 @@ export const getUnreadCount = async (
       where: { userId, read: false },
     });
 
-    return ResponseApi.success(res, "Nombre de notifications non lues", 200, { unread });
+    return ResponseApi.success(res, "Nombre de notifications non lues", 200, {
+      unread,
+    });
   } catch (error) {
     next(error);
   }

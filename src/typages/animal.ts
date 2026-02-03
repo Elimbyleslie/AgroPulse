@@ -7,6 +7,9 @@ export interface Animal {
   lotId?: number;
   speciesId: number;
   breedId?: number;
+  barnId?: number;
+  penId:number;
+  herdId:number;
   photo?: string;
   birthId?: number;
   qrcode?: string;
@@ -17,3 +20,5 @@ export interface Animal {
   createdAt?: string;
   updatedAt?: string;
 }
+
+

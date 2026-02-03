@@ -7,7 +7,7 @@ import { SaleItem } from "../typages/expenseSale.js";
 export const createSaleItem = async (
   req: Request<{}, {}, SaleItem>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const item = await prisma.saleItem.create({
@@ -35,7 +35,7 @@ export const getAllSaleItems = async (
     }
   >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { saleId, lotId, animalId } = req.query;
@@ -77,7 +77,7 @@ export const getAllSaleItems = async (
 export const getSaleItemById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const item = await prisma.saleItem.findUnique({
@@ -95,7 +95,7 @@ export const getSaleItemById = async (
 export const updateSaleItem = async (
   req: Request<{ id: string }, {}, Partial<SaleItem>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const updated = await prisma.saleItem.update({
@@ -115,7 +115,7 @@ export const updateSaleItem = async (
 export const deleteSaleItem = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const deleted = await prisma.saleItem.delete({

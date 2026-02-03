@@ -4,7 +4,11 @@ import ResponseApi from "../helpers/response.js";
 import { ExpenseCategory } from "../typages/expenseSale.js";
 
 // CREATE
-export const createExpenseCategory = async (req: Request<{}, {}, ExpenseCategory>, res: Response, next: NextFunction) => {
+export const createExpenseCategory = async (
+  req: Request<{}, {}, ExpenseCategory>,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const category = await prisma.expenseCategory.create({ data: req.body });
     return ResponseApi.success(res, "Catégorie créée", 201, category);
@@ -17,7 +21,7 @@ export const createExpenseCategory = async (req: Request<{}, {}, ExpenseCategory
 export const getAllExpenseCategories = async (
   req: Request<{}, {}, {}, { search?: string; page?: string; limit?: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { search } = req.query;
@@ -40,7 +44,13 @@ export const getAllExpenseCategories = async (
 
     return ResponseApi.success(res, "Liste des catégories récupérée", 200, {
       categories,
-      pagination: { currentPage: page, previousPage: page > 1 ? page - 1 : null, nextPage: page * limit < totalItems ? page + 1 : null, totalItems, totalPage: Math.ceil(totalItems / limit) },
+      pagination: {
+        currentPage: page,
+        previousPage: page > 1 ? page - 1 : null,
+        nextPage: page * limit < totalItems ? page + 1 : null,
+        totalItems,
+        totalPage: Math.ceil(totalItems / limit),
+      },
     });
   } catch (error) {
     next(error);
@@ -48,9 +58,16 @@ export const getAllExpenseCategories = async (
 };
 
 // GET BY ID
-export const getExpenseCategoryById = async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+export const getExpenseCategoryById = async (
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
-    const category = await prisma.expenseCategory.findUnique({ where: { id: Number(req.params.id) }, include: { expenses: true } });
+    const category = await prisma.expenseCategory.findUnique({
+      where: { id: Number(req.params.id) },
+      include: { expenses: true },
+    });
     if (!category) return ResponseApi.error(res, "Catégorie non trouvée", 404);
     return ResponseApi.success(res, "Catégorie récupérée", 200, category);
   } catch (error) {
@@ -59,23 +76,38 @@ export const getExpenseCategoryById = async (req: Request<{ id: string }>, res: 
 };
 
 // UPDATE
-export const updateExpenseCategory = async (req: Request<{ id: string }, {}, Partial<ExpenseCategory>>, res: Response, next: NextFunction) => {
+export const updateExpenseCategory = async (
+  req: Request<{ id: string }, {}, Partial<ExpenseCategory>>,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
-    const updated = await prisma.expenseCategory.update({ where: { id: Number(req.params.id) }, data: req.body });
+    const updated = await prisma.expenseCategory.update({
+      where: { id: Number(req.params.id) },
+      data: req.body,
+    });
     return ResponseApi.success(res, "Catégorie mise à jour", 200, updated);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Catégorie non trouvée", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Catégorie non trouvée", 404);
     next(error);
   }
 };
 
 // DELETE
-export const deleteExpenseCategory = async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+export const deleteExpenseCategory = async (
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
-    const deleted = await prisma.expenseCategory.delete({ where: { id: Number(req.params.id) } });
+    const deleted = await prisma.expenseCategory.delete({
+      where: { id: Number(req.params.id) },
+    });
     return ResponseApi.success(res, "Catégorie supprimée", 200, deleted);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Catégorie non trouvée", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Catégorie non trouvée", 404);
     next(error);
   }
 };

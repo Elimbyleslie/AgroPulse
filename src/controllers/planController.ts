@@ -1,4 +1,3 @@
-
 import { Request, Response } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
@@ -6,7 +5,7 @@ import { Plan } from "../typages/plan.js";
 // Créer un plan
 export const createPlan = async (
   req: Request<any, any, Plan>,
-  res: Response
+  res: Response,
 ) => {
   try {
     const {
@@ -85,8 +84,7 @@ export const getPlanById = async (req: Request, res: Response) => {
     console.error(error);
     return ResponseApi.error(res, "Erreur serveur", 500);
   }
-};  
-
+};
 
 // Mettre à jour un plan
 export const updatePlan = async (req: Request, res: Response) => {

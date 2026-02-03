@@ -9,7 +9,7 @@ import { Breed } from "../typages/breed.js";
 export const createBreed = async (
   req: Request<{}, {}, Breed>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { speciesId, name } = req.body;
@@ -32,9 +32,14 @@ export const createBreed = async (
 // GET ALL Breeds (pagination + filtre par species)
 // ======================================================
 export const getAllBreeds = async (
-  req: Request<{}, {}, {}, { search?: string; speciesId?: string; page?: string; limit?: string }>,
+  req: Request<
+    {},
+    {},
+    {},
+    { search?: string; speciesId?: string; page?: string; limit?: string }
+  >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { search, speciesId } = req.query;
@@ -88,7 +93,7 @@ export const getAllBreeds = async (
 export const getBreedById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -122,13 +127,14 @@ export const getBreedById = async (
 export const updateBreed = async (
   req: Request<{ id: string }, {}, Partial<Breed>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
     const data = req.body;
 
-    if (!id || isNaN(Number(id))) return ResponseApi.error(res, "ID invalide", 400);
+    if (!id || isNaN(Number(id)))
+      return ResponseApi.error(res, "ID invalide", 400);
 
     const updated = await prisma.breed.update({
       where: { id: Number(id) },
@@ -150,7 +156,7 @@ export const updateBreed = async (
 export const deleteBreed = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;

@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 import { ReproductionWithBirth } from "../typages/reproductionWithBirth.js";
-import {Birth} from '../typages/birth.js'
+import { Birth } from "../typages/birth.js";
 
 // ======================================================
 // CREATE Reproduction + option Birth automatique
@@ -10,7 +10,7 @@ import {Birth} from '../typages/birth.js'
 export const createReproductionWithBirth = async (
   req: Request<{}, {}, ReproductionWithBirth>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const {
@@ -36,13 +36,15 @@ export const createReproductionWithBirth = async (
       },
     });
 
-    let birth : any = null;
+    let birth: any = null;
 
     // 2️⃣ Si la date effective de naissance est renseignée, créer la Birth
     if (actualBirthDate && numberBorn && femaleId) {
       birth = await prisma.birth.create({
         data: {
-          farmId: (await prisma.animal.findUnique({ where: { id: femaleId } }))?.farmId || 0,
+          farmId:
+            (await prisma.animal.findUnique({ where: { id: femaleId } }))
+              ?.farmId || 0,
           motherId: femaleId,
           fatherId: maleId,
           date: new Date(actualBirthDate),
@@ -55,9 +57,11 @@ export const createReproductionWithBirth = async (
       });
 
       // 3️⃣ Créer les animaux "newborns"
-      const femaleAnimal = await prisma.animal.findUnique({ where: { id: femaleId } });
+      const femaleAnimal = await prisma.animal.findUnique({
+        where: { id: femaleId },
+      });
       const newbornsData = Array.from({ length: numberBorn }).map(() => ({
-        name: "Newborn" , // Nom temporaire
+        name: "Newborn", // Nom temporaire
         farmId: birth.farmId,
         breedId: femaleAnimal?.breedId || null,
         speciesId: femaleAnimal?.speciesId || 0,
@@ -72,7 +76,7 @@ export const createReproductionWithBirth = async (
       res,
       "Reproduction créée avec naissance si applicable",
       201,
-      { reproduction, birth }
+      { reproduction, birth },
     );
   } catch (error) {
     next(error);
@@ -85,7 +89,7 @@ export const createReproductionWithBirth = async (
 export const getAllReproductionWithBirth = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const reproductions = await prisma.animalReproduction.findMany({
@@ -99,7 +103,12 @@ export const getAllReproductionWithBirth = async (
       orderBy: { id: "desc" },
     });
 
-    return ResponseApi.success(res, "Liste des reproductions récupérée", 200, reproductions);
+    return ResponseApi.success(
+      res,
+      "Liste des reproductions récupérée",
+      200,
+      reproductions,
+    );
   } catch (error) {
     next(error);
   }

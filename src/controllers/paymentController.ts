@@ -9,13 +9,17 @@ import { Payment } from "../typages/payment.js";
 export const createPayment = async (
   req: Request<{}, {}, Payment>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { amount, method, reference } = req.body;
 
     if (!amount || !method || !reference) {
-      return ResponseApi.error(res, "amount, method et reference sont obligatoires", 400);
+      return ResponseApi.error(
+        res,
+        "amount, method et reference sont obligatoires",
+        400,
+      );
     }
 
     const payment = await prisma.payment.create({
@@ -32,9 +36,20 @@ export const createPayment = async (
 // GET ALL Payments (pagination + filtres)
 // ======================================================
 export const getAllPayments = async (
-  req: Request<{}, {}, {}, { method?: string; status?: string; search?: string; page?: string; limit?: string }>,
+  req: Request<
+    {},
+    {},
+    {},
+    {
+      method?: string;
+      status?: string;
+      search?: string;
+      page?: string;
+      limit?: string;
+    }
+  >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { method, status, search } = req.query;
@@ -52,12 +67,17 @@ export const getAllPayments = async (
     const payments = await prisma.payment.findMany({
       skip: offset,
       take: limit,
-      where,
       orderBy: { id: "desc" },
       include: {
         user: true,
         sale: true,
+        organization: true,
+        farm:true,
+        purchase:true,
       },
+      where: { ...where
+        
+       },
     });
 
     const totalItems = await prisma.payment.count({ where });
@@ -83,7 +103,7 @@ export const getAllPayments = async (
 export const getPaymentById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -116,7 +136,7 @@ export const getPaymentById = async (
 export const updatePayment = async (
   req: Request<{ id: string }, {}, Partial<Payment>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -146,7 +166,7 @@ export const updatePayment = async (
 export const deletePayment = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;

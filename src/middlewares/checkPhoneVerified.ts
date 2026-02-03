@@ -41,7 +41,6 @@
 //   }
 // };
 
-
 // export const verifyPhoneOTP = async (req, res) => {
 //   try {
 //     const { otp } = req.body;
@@ -76,8 +75,6 @@
 //     res.status(500).json({ message: "Erreur interne." });
 //   }
 // };
-
-
 
 // export const checkPhoneVerified = async (req, res, next) => {
 //   try {

@@ -20,25 +20,10 @@ import { Permission } from "../helpers/permissions.js";
 
 const router = Router();
 
-// ============================================
-// ROUTES PUBLIQUES
-// ============================================
 router.post("/", validator(createdUserSchema), createUser);
+router.get("/profile", getUserProfile);
 
-// ============================================
-// ROUTES PROFIL (connecté seulement)
-// ============================================
-router.get(
-  "/profile",
-  authenticate,
-  getUserProfile
-);
-
-router.put(
-  "/profile",
-  authenticate,
-  updateUserProfile
-);
+router.put("/profile", updateUserProfile);
 
 // ============================================
 // ROUTES ADMIN / PERMISSIONS
@@ -46,29 +31,25 @@ router.put(
 router.get(
   "/",
   authenticate,
-  authorizePermission([Permission.READ_USER] ),
-  getAllUsers
+  authorizePermission([Permission.READ_USER]),
+  getAllUsers,
 );
 
 router.get(
   "/:id",
   authenticate,
   authorizePermission([Permission.READ_USER]),
-  getUserById
+  getUserById,
 );
 
 router.put(
   "/:id",
-  authenticate,
-  authorizePermission([Permission.UPDATE_USER]),
-  updateUser
+  updateUser,
 );
 
 router.delete(
   "/:id",
-  authenticate,
-  authorizePermission([Permission.DELETE_USER]),
-  deleteUser
+  deleteUser,
 );
 
 // ============================================
@@ -78,21 +59,21 @@ router.post(
   "/:id/roles",
   authenticate,
   authorizePermission([Permission.ASSIGN_ROLE]), // Crée une permission spéciale si besoin
-  assignRole
+  assignRole,
 );
 
 router.delete(
   "/:id/roles",
   authenticate,
   authorizePermission([Permission.REMOVE_ROLE]), // Crée une permission spéciale si besoin
-  removeRole
+  removeRole,
 );
 
 router.get(
   "/:id/roles",
   authenticate,
   authorizePermission([Permission.READ_USER_ROLES]),
-  getUserRoles
+  getUserRoles,
 );
 
 export default router;

@@ -1,24 +1,28 @@
-import { AnySchema } from 'yup';
-import Utilities from '../helpers/utilities.js';
-import { KeyType, Verify } from 'node:crypto';
-import { NextFunction, Request, RequestParamHandler, Response } from 'express';
+import { AnySchema } from "yup";
+import Utilities from "../helpers/utilities.js";
+import { KeyType, Verify } from "node:crypto";
+import { NextFunction, Request, RequestParamHandler, Response } from "express";
 
-export const validator = (schema: AnySchema) => {
-  return async (req: Request, res: any, next: NextFunction): Promise<void> => {
-    try {
-      await schema.validate(
-        { ...req.body, ...req.query, ...req.params },
-        {
-          strict: true,
-          abortEarly: false,
-        },
-      );
-      next();
-    } catch (error: any) {
-      return res.status(422).json({
-        message: 'Validation failed !!!',
-        errors: Utilities.formatValidationErrors(error),
-      });
-    }
-  };
+// Dans ton middleware de validation (ex: validate.ts)
+export const validator = (schema: any) => async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // L'option { cast: true } est CRUCIALE ici
+    const validatedBody = await schema.validate(req.body, { 
+      abortEarly: false, 
+      stripUnknown: true 
+    });
+    
+    // TRÈS IMPORTANT : On remplace req.body par la version castée (avec les vrais nombres)
+    req.body = validatedBody; 
+    
+    next();
+  } catch (error: any) {
+    return res.status(400).json({
+      message: "Validation failed !!!",
+      errors: error.inner.reduce((acc: any, curr: any) => ({
+        ...acc,
+        [curr.path]: curr.message
+      }), {})
+    });
+  }
 };

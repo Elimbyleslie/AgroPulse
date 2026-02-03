@@ -7,19 +7,26 @@ import { AnimalWeight } from "../typages/animalWeight.js";
 export const createAnimalWeight = async (
   req: Request<{}, {}, AnimalWeight>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const weight = await prisma.animalWeight.create({ data: req.body });
     return ResponseApi.success(res, "Poids enregistré", 201, weight);
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 };
 
 // GET ALL (pagination + filtre)
 export const getAllAnimalWeights = async (
-  req: Request<{}, {}, {}, { animalId?: string; page?: string; limit?: string }>,
+  req: Request<
+    {},
+    {},
+    {},
+    { animalId?: string; page?: string; limit?: string }
+  >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { animalId } = req.query;
@@ -50,18 +57,21 @@ export const getAllAnimalWeights = async (
         totalPage: Math.ceil(totalItems / limit),
       },
     });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 };
 
 // GET BY ID
 export const getAnimalWeightById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
-    if (!id || isNaN(Number(id))) return ResponseApi.error(res, "ID invalide", 400);
+    if (!id || isNaN(Number(id)))
+      return ResponseApi.error(res, "ID invalide", 400);
 
     const weight = await prisma.animalWeight.findUnique({
       where: { id: Number(id) },
@@ -71,14 +81,16 @@ export const getAnimalWeightById = async (
     if (!weight) return ResponseApi.error(res, "Poids non trouvé", 404);
 
     return ResponseApi.success(res, "Poids récupéré", 200, weight);
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 };
 
 // UPDATE
 export const updateAnimalWeight = async (
   req: Request<{ id: string }, {}, Partial<AnimalWeight>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -88,7 +100,8 @@ export const updateAnimalWeight = async (
     });
     return ResponseApi.success(res, "Poids mis à jour", 200, updated);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Poids non trouvé", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Poids non trouvé", 404);
     next(error);
   }
 };
@@ -97,14 +110,17 @@ export const updateAnimalWeight = async (
 export const deleteAnimalWeight = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
-    const deleted = await prisma.animalWeight.delete({ where: { id: Number(id) } });
+    const deleted = await prisma.animalWeight.delete({
+      where: { id: Number(id) },
+    });
     return ResponseApi.success(res, "Poids supprimé", 200, deleted);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Poids non trouvé", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Poids non trouvé", 404);
     next(error);
   }
 };

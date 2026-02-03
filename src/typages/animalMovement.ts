@@ -5,5 +5,3 @@ export interface AnimalMovement {
   toPenId?: number;
   date: Date;
 }
-
-

@@ -61,7 +61,7 @@ export const getInvoiceById = async (req: Request, res: Response) => {
 // Lister toutes les factures d'une organisation
 export const getAllOrganizationInvoices = async (
   req: Request,
-  res: Response
+  res: Response,
 ) => {
   try {
     const { organizationId } = req.params;
@@ -106,5 +106,5 @@ export const deleteInvoice = async (req: Request, res: Response) =>
     await prisma.invoice.delete({
       where: { id: Number(req.params.id) },
       include: { subscription: true },
-    })
+    }),
   );

@@ -1,4 +1,4 @@
-import env from './env.js';
+import env from "./env.js";
 
 const corsOptions = {
   origin: function (origin: any, callback: any) {
@@ -13,10 +13,10 @@ const corsOptions = {
     }
 
     // Sinon rejet
-    return callback(new Error('Not allowed by CORS'));
+    return callback(new Error("Not allowed by CORS"));
   },
 
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
   credentials: true,
   optionsSuccessStatus: 204,
 };

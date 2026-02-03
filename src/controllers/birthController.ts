@@ -9,7 +9,7 @@ import { Birth } from "../typages/birth.js";
 export const createBirth = async (
   req: Request<{}, {}, Birth>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const {
@@ -30,7 +30,7 @@ export const createBirth = async (
       return ResponseApi.error(
         res,
         "farmId, motherId et date sont obligatoires",
-        400
+        400,
       );
     }
 
@@ -64,10 +64,16 @@ export const getAllBirths = async (
     {},
     {},
     {},
-    { search?: string; farmId?: string; motherId?: string; page?: string; limit?: string }
+    {
+      search?: string;
+      farmId?: string;
+      motherId?: string;
+      page?: string;
+      limit?: string;
+    }
   >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { farmId, motherId } = req.query;
@@ -119,7 +125,7 @@ export const getAllBirths = async (
 export const getBirthById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -156,7 +162,7 @@ export const getBirthById = async (
 export const updateBirth = async (
   req: Request<{ id: string }, {}, Partial<Birth>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -185,7 +191,7 @@ export const updateBirth = async (
 export const deleteBirth = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;

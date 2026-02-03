@@ -1,4 +1,4 @@
-import { PaymentMethod, PaymentStatus  } from "../../generated/prisma/enums.js";
+import { PaymentMethod, PaymentStatus } from "../../generated/prisma/enums.js";
 
 export interface Payment {
   id: number;

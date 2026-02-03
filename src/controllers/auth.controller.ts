@@ -6,14 +6,15 @@ import { RegisterUser, LoginUser, ResetPassword } from "../typages/auth.js";
 import speakeasy from "speakeasy";
 import Utilities from "../helpers/utilities.js";
 import { sendMail } from "../services/mail.service.js";
-import {assignSuperAdminIfEligible} from '../controllers/role.controller.js'
+import { assignSuperAdminIfEligible } from "./AssignRole.js";
 import crypto from "crypto";
+import { date } from "yup";
 
 //=====================Login=====================
 export const login = async (
   req: Request<{}, {}, { email: string; password: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { email, password } = req.body;
@@ -24,10 +25,20 @@ export const login = async (
         .json(Utilities.errorResponse(400, "Email et mot de passe requis."));
     }
 
-    // 1️⃣ Récupérer l'utilisateur avec ses rôles et permissions
+    // 1️⃣ Récupérer l'utilisateur avec rôles et permissions
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
+        ownedOrganizations: {
+          include: {
+            farms: {
+              include: {
+                animals: true,
+              },
+            },
+          },
+        },
+        memberOrganizations: true,
         roles: {
           include: {
             role: {
@@ -43,7 +54,24 @@ export const login = async (
     if (!user) {
       return res
         .status(401)
-        .json(Utilities.errorResponse(401, "Email ou mot de passe incorrect."));
+        .json(
+          Utilities.errorResponse(
+            401,
+            " cet utilisateur n'existe pas. veuillez creer un compte ",
+          ),
+        );
+    }
+
+    // 🔐 Bloquer login local si compte Google
+    if (user.provider === "GOOGLE") {
+      return res
+        .status(400)
+        .json(
+          Utilities.errorResponse(
+            400,
+            "Ce compte utilise la connexion Google. Veuillez vous connecter avec Google.",
+          ),
+        );
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
@@ -59,6 +87,16 @@ export const login = async (
         .json(Utilities.errorResponse(403, "Compte désactivé."));
     }
 
+    // 📧 Email non vérifié → OTP requis
+    if (!user.emailVerified) {
+      return res.status(403).json(
+        Utilities.errorResponse(403, "Email non vérifié.", {
+          emailVerified: false,
+          email: user.email,
+        }),
+      );
+    }
+
     if (!process.env.JWT_SECRET || !process.env.REFRESH_JWT_SECRET) {
       throw new Error("Secrets JWT non configurés");
     }
@@ -67,16 +105,16 @@ export const login = async (
     const accessToken = jwt.sign(
       { id_user: user.id, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "1h" },
     );
 
     const refreshToken = jwt.sign(
       { id_user: user.id },
       process.env.REFRESH_JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
-    // 3️⃣ Ajouter le refreshToken en cookie HTTP-Only
+    // 3️⃣ Cookie refresh token
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: true,
@@ -85,38 +123,42 @@ export const login = async (
       path: "/",
     });
 
-    // 4️⃣ Mapper les rôles et permissions
+    // 4️⃣ Mapper rôles et permissions
     const userRoles = user.roles
-      .map((ur:any) => {
+      .map((ur: any) => {
         if (!ur.role) return null;
         return {
           id: ur.role.id,
           name: ur.role.name,
           description: ur.role.description,
-          permissions: ur.role.permissions.map((rp:any) => rp.permission.code),
+          permissions: ur.role.permissions.map((rp: any) => rp.permission.code),
         };
       })
       .filter(Boolean);
 
-    // 5️⃣ Retourner la réponse
+    // 5️⃣ Réponse finale
     return res.status(200).json(
-      Utilities.successReponse(200, "Connexion réussie", { token:{
-        accessToken,
-        refreshToken,
-      },
+      Utilities.successReponse(200, "Connexion réussie", {
+        token: {
+          accessToken,
+          refreshToken,
+        },
         user: {
           id_user: user.id,
-          nom: user.name,
+          name: user.name,
+          userName: user.userName,
           email: user.email,
-          telephone: user.phone,
+          phone: user.phone,
           roles: userRoles,
+          password: user.password,
         },
-      })
+      }),
     );
   } catch (error) {
     next(error);
   }
 };
+
 /** REFRESH TOKEN */
 export const refreshToken = async (req: Request, res: Response) => {
   try {
@@ -142,13 +184,13 @@ export const refreshToken = async (req: Request, res: Response) => {
     const newAccessToken = jwt.sign(
       { id_user: user.id, email: user.email },
       process.env.JWT_SECRET!,
-      { expiresIn: "1h" }
+      { expiresIn: "1h" },
     );
 
     return res.status(200).json(
       Utilities.successReponse(200, "Nouveau token généré", {
         accessToken: newAccessToken,
-      })
+      }),
     );
   } catch (error) {
     return res
@@ -161,46 +203,58 @@ export const refreshToken = async (req: Request, res: Response) => {
 export const register = async (
   req: Request<any, any, RegisterUser>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const data = req.body;
 
-    // Vérifier si l'email existe déjà
+    const where = {
+      email: data.email,
+      userName: data.userName,
+    };
+
+    // 1️⃣ Vérifier si l'email existe déjà ou le userName
     const existingUser = await prisma.user.findUnique({
-      where: { email: data.email },
+      where: { email: data.email, userName: data.userName, phone: data.phone },
     });
+
     if (existingUser) {
       return res
         .status(409)
-        .json(Utilities.errorResponse(409, "mots de passe deja utilisé"));
+        .json(
+          Utilities.errorResponse(
+            409,
+            "Email ou userName existant ou numero deja enregistré.",
+          ),
+        );
     }
-    // Vérification mot de passe + confirmation
+
+    // 2️⃣ Vérification mot de passe + confirmation
     if (data.password !== data.passwordConfirmation) {
       return res
         .status(400)
         .json(
           Utilities.errorResponse(
             400,
-            "Les mots de passe ne correspondent pas."
-          )
+            "Les mots de passe ne correspondent pas.",
+          ),
         );
     }
-    // Hash du mot de passe
+
+    // 3️⃣ Hash du mot de passe
     const hashedPassword = await Utilities.hashPassword(data.password);
 
-   
-    // Gérer l'upload de la photo de profil si présente
+    // 4️⃣ Gérer l'upload de la photo
     let profilePhoto = "/uploads/default_profile.png";
     if (req.files?.photo) {
       profilePhoto = await Utilities.saveFile(
         req.files.photo as any,
-        "uploads/profiles"
+        "uploads/profiles",
       );
       profilePhoto = Utilities.resolveFileUrl(req, profilePhoto);
     }
 
-    // Création de l'utilisateur
+    // 5️⃣ Création utilisateur (LOCAL)
     const user = await prisma.user.create({
       data: {
         name: data.name,
@@ -209,36 +263,43 @@ export const register = async (
         password: hashedPassword,
         phone: data.phone,
         photo: profilePhoto,
-        otpExpiresAt: new Date(Date.now() + 600000),
-      },  
+
+        // 🔐 Auth
+        provider: "LOCAL",
+        emailVerified: false,
+        status: "active",
+      },
     });
 
-     await assignSuperAdminIfEligible(user.id);
-    // Envoi email de bienvenue
-    await sendMail({
-      to: data.email,
-      name: data.name,
-      type: "welcome",
-      subject: "Validate your account",
-    });
-   
+    // Générer token temporaire pour vérification email
+    const tempToken = jwt.sign(
+      { id_user: user.id, scope: "verify-email" },
+      process.env.JWT_SECRET!,
+      { expiresIn: "10m" },
+    );
 
-    // Retirer les données sensibles avant de renvoyer
+    // 6️⃣ Attribution rôle admin si éligible
+    await assignSuperAdminIfEligible(user.id);
+
+    // ⚠️ Pas d’OTP ici
+    // L’OTP est envoyé via /send-email-verification-otp
+
+    // 7️⃣ Nettoyage données sensibles
     const safeUser = {
-      ...user,
-      password: undefined,
-      secretOtp: undefined,
-      otp: undefined,
+      id_user: user.id,
+      name: user.name,
+      email: user.email,
+      emailVerified: user.emailVerified,
     };
 
-    res
+    return res
       .status(201)
       .json(
         Utilities.successReponse(
           201,
-          "User created successfully.welcome email send .",
-          safeUser
-        )
+          "Compte créé avec succès. Vérifiez votre email.",
+          { user: safeUser, token: tempToken },
+        ),
       );
   } catch (error) {
     next(error);
@@ -247,46 +308,85 @@ export const register = async (
 
 export const sendEmailVerificationOTP = async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id_user;
+    const email = req.body.email;
 
+    if (!email) {
+      return res
+        .status(401)
+        .json(Utilities.errorResponse(401, "Email requis."));
+    }
+
+    // 1️⃣ Récupérer l'utilisateur
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { email: email },
     });
 
     if (!user) {
-      return res.status(404).json({ message: "Utilisateur non trouvé." });
+      return res
+        .status(404)
+        .json(Utilities.errorResponse(404, "Utilisateur introuvable."));
     }
 
-    // Génère un OTP à 6 chiffres
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    // 🔐 Refuser Google
+    if (user.provider !== "LOCAL") {
+      return res
+        .status(400)
+        .json(
+          Utilities.errorResponse(
+            400,
+            "La vérification email n'est pas requise pour les comptes Google.",
+          ),
+        );
+    }
 
-    // Génère un secret pour la sécurité
-    const secret = crypto.randomBytes(32).toString("hex");
+    // 📧 Déjà vérifié
+    if (user.emailVerified) {
+      return res
+        .status(400)
+        .json(Utilities.errorResponse(400, "Email déjà vérifié."));
+    }
 
+    // 2️⃣ Génération OTP sécurisé (6 chiffres)
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 3️⃣ Expiration (10 minutes)
+    const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    // 4️⃣ Sauvegarde OTP
     await prisma.user.update({
-      where: { id: userId },
+      where: { email: email },
       data: {
         otp,
-        secretOtp: secret,
-        otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000), // expire dans 10 minutes
+        otpExpiresAt,
       },
     });
 
-    // Envoi de l'email
-  await sendMail({
+    // 5️⃣ Envoi email
+    await sendMail({
       to: user.email,
       name: user.name,
       type: "verifyEmail",
       otp: Number(otp),
-      subject: "Verifier votre email",
+      subject: "Vérifiez votre adresse email",
     });
 
-    return res.json({ message: "OTP envoyé à votre email." });
+    return res
+      .status(200)
+      .json(
+        Utilities.successReponse(
+          200,
+          "Code de vérification envoyé par email.",
+          {},
+        ),
+      );
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ message: "Erreur interne." });
+    console.error(error);
+    return res
+      .status(500)
+      .json(Utilities.errorResponse(500, "Erreur interne du serveur."));
   }
 };
+
 /** RESET PASSWORD */
 
 interface SetNewPasswordBody {
@@ -302,7 +402,7 @@ interface ResetPasswordBody {
 export const resetPassword = async (
   req: Request<{}, {}, ResetPasswordBody>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const { email } = req.body;
 
@@ -348,18 +448,19 @@ export const resetPassword = async (
       subject: "Réinitialisation de mot de passe",
     });
 
-    return res.status(200).json(
-      Utilities.successReponse(
-        200,
-        "Email de réinitialisation envoyé ! Veuillez vérifier votre boîte de réception.",
-        {}
-      )
-    );
+    return res
+      .status(200)
+      .json(
+        Utilities.successReponse(
+          200,
+          "Email de réinitialisation envoyé ! Veuillez vérifier votre boîte de réception.",
+          {},
+        ),
+      );
   } catch (error) {
     next(error);
   }
 };
-
 
 /** LOGOUT */
 export const logout = async (req: Request, res: Response) => {
@@ -385,7 +486,7 @@ export const logout = async (req: Request, res: Response) => {
 export const saveOtpToUser = async (
   userId: number,
   otp: string,
-  expiresAt: Date
+  expiresAt: Date,
 ) => {
   return await prisma.user.update({
     where: { id: userId },
@@ -395,17 +496,18 @@ export const saveOtpToUser = async (
     },
   });
 };
-
+//fonction pour verifier si le code otp envoyé a l'utilisateur correspond a celui entre par l'utilisateur
 export const verifyOtp = async (req: Request, res: Response) => {
-
   const { email, otp } = req.body;
   const user = await prisma.user.findUnique({
     where: { email },
   });
 
   if (!user || !user.secretOtp) {
-     res.status(409).json(Utilities.errorResponse(404, 'Utilisateur ou secret OTP invalide'));
-      return;
+    res
+      .status(409)
+      .json(Utilities.errorResponse(404, "Utilisateur ou secret OTP invalide"));
+    return;
   }
 
   // Vérifier le code TOTP
@@ -417,8 +519,10 @@ export const verifyOtp = async (req: Request, res: Response) => {
   });
 
   if (!isValid) {
-    res.status(409).json(Utilities.errorResponse(400, 'OTP invalide ou expiré'));
-      return;
+    res
+      .status(409)
+      .json(Utilities.errorResponse(400, "OTP invalide ou expiré"));
+    return;
   }
 
   // Mise à jour de la dernière connexion
@@ -434,52 +538,96 @@ export const verifyOtp = async (req: Request, res: Response) => {
     message: "OTP vérifié avec succès",
     userId: user.id,
   };
-
-  
 };
 
+//fonction pour verifier le code otp pour la verification de l'email
 export const verifyEmailOTP = async (req: Request, res: Response) => {
   try {
-    const { otp } = req.body;
-    const userId = (req as any).user?.id_user;
+    const { otp, email } = req.body; // ✅ Ajout de l'email
+
+    if (!otp || !email) {
+      return res
+        .status(400)
+        .json(Utilities.errorResponse(400, "Code OTP et email requis."));
+    }
 
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { email },
     });
 
     if (!user) {
-      return res.status(404).json({ message: "Utilisateur non trouvé." });
+      return res
+        .status(404)
+        .json(Utilities.errorResponse(404, "Utilisateur non trouvé."));
     }
 
-    if (user.otp !== otp) {
-      return res.status(400).json({ message: "OTP incorrect." });
+    // 🔐 Refuser Google
+    if (user.provider !== "LOCAL") {
+      return res
+        .status(400)
+        .json(
+          Utilities.errorResponse(
+            400,
+            "La vérification email n'est pas requise pour les comptes Google.",
+          ),
+        );
     }
 
-    if (!user.otpExpiresAt) {
-      return res.status(400).json({ message: "OTP expiré." });
+    // 📧 Déjà vérifié
+    if (user.emailVerified === true) {
+      return res
+        .status(400)
+        .json(Utilities.errorResponse(400, "Email déjà vérifié."));
+    }
+
+    // ⏱ OTP manquant ou expiré
+    if (!user.otp || !user.otpExpiresAt) {
+      return res
+        .status(400)
+        .json(
+          Utilities.errorResponse(
+            400,
+            "Code OTP expiré. Veuillez en demander un nouveau.",
+          ),
+        );
     }
 
     if (user.otpExpiresAt < new Date()) {
-      return res.status(400).json({ message: "OTP expiré." });
+      return res
+        .status(400)
+        .json(Utilities.errorResponse(400, "Code OTP expiré."));
     }
 
+    // 🔢 Comparaison OTP
+    if (user.otp !== String(otp)) {
+      return res
+        .status(400)
+        .json(Utilities.errorResponse(400, "Code OTP incorrect."));
+    }
+
+    // 2️⃣ Validation email + nettoyage OTP
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: user.id }, // ✅ Utiliser user.id récupéré
       data: {
         emailVerified: true,
         otp: null,
-        secretOtp: null,
         otpExpiresAt: null,
+        secretOtp: null,
       },
     });
 
-    return res.json({ message: "Email vérifié avec succès !" });
+    return res
+      .status(200)
+      .json(Utilities.successReponse(200, "Email vérifié avec succès.", {}));
   } catch (error) {
-    return res.status(500).json({ message: "Erreur interne." });
+    console.error(error);
+    return res
+      .status(500)
+      .json(Utilities.errorResponse(500, "Erreur interne du serveur."));
   }
 };
 
-
+//fonction pour renvoyer un nouveau code otp a l'utilisateur
 export const resendOtp = async (req: Request, res: Response) => {
   const { email } = req.body;
 
@@ -488,7 +636,9 @@ export const resendOtp = async (req: Request, res: Response) => {
   });
 
   if (!user) {
-    res.status(404).json(Utilities.errorResponse(404, "Utilisateur introuvable."));
+    res
+      .status(404)
+      .json(Utilities.errorResponse(404, "Utilisateur introuvable."));
     return;
   }
   const secretKey = speakeasy.generateSecret({ name: email }).base32;
@@ -515,7 +665,7 @@ export const resendOtp = async (req: Request, res: Response) => {
   res.status(200).json({
     success: true,
     message: "OTP renvoyé avec succès",
-  })
+  });
 };
 
 interface UpdatePasswordBody {
@@ -527,7 +677,7 @@ interface UpdatePasswordBody {
 export const updatePassword = async (
   req: Request<{}, {}, UpdatePasswordBody>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   const { email, otp, newPassword } = req.body;
 
@@ -541,7 +691,12 @@ export const updatePassword = async (
 
     // Vérifier OTP et expiration
     const now = new Date();
-    if (!user.otp || !user.otpExpiresAt || user.otpExpiresAt < now || user.otp !== otp) {
+    if (
+      !user.otp ||
+      !user.otpExpiresAt ||
+      user.otpExpiresAt < now ||
+      user.otp !== otp
+    ) {
       return res
         .status(400)
         .json(Utilities.errorResponse(400, "OTP invalide ou expiré."));
@@ -562,14 +717,23 @@ export const updatePassword = async (
 
     return res
       .status(200)
-      .json(Utilities.successReponse(200, "Mot de passe mis à jour avec succès." ,updatedUser));
+      .json(
+        Utilities.successReponse(
+          200,
+          "Mot de passe mis à jour avec succès.",
+          updatedUser,
+        ),
+      );
   } catch (error) {
     next(error);
   }
 };
 
-export const changePassword = async (req: Request, res: Response, next: NextFunction) => { 
-
+export const changePassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const { currentPassword, newPassword } = req.body;
     const userId = (req as any).user?.id_user;
@@ -582,10 +746,15 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
       return res.status(404).json({ message: "Utilisateur non rencontré." });
     }
 
-    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    const isPasswordValid = await bcrypt.compare(
+      currentPassword,
+      user.password,
+    );
 
     if (!isPasswordValid) {
-      return res.status(400).json({ message: "Mot de passe actuel incorrect." });
+      return res
+        .status(400)
+        .json({ message: "Mot de passe actuel incorrect." });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -599,10 +768,67 @@ export const changePassword = async (req: Request, res: Response, next: NextFunc
 
     return res
       .status(200)
-      .json(Utilities.successReponse(200, "Mot de passe mis à jour avec succès." ,updatedUser));
+      .json(
+        Utilities.successReponse(
+          200,
+          "Mot de passe mis à jour avec succès.",
+          updatedUser,
+        ),
+      );
   } catch (error) {
     next(error);
   }
 };
 
+export const getMe = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id; // Récupéré par ton middleware protect/auth
 
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        userName: true,
+        photo: true,
+        defaultFarmId: true,
+        // ✅ On récupère les rôles système
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+        // ✅ On récupère les organisations dont il est membre
+        memberOrganizations: {
+          select: {
+            id: true,
+            name: true,
+            ownerId: true,
+          },
+        },
+        // ✅ On récupère aussi celles qu'il possède
+        ownedOrganizations: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+
+    // On aplatit un peu la structure pour le frontend
+    const formattedUser = {
+      ...user,
+      roles: user.roles.map((r) => r.role.name), // ["ORGANIZATION_OWNER", "USER"]
+    };
+
+    res.status(200).json({ data: formattedUser });
+  } catch (error) {
+    res.status(500).json({ message: "Erreur serveur", error });
+  }
+};

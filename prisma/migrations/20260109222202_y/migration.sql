@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE `user` ADD COLUMN `googleId` VARCHAR(191) NULL,
+    ADD COLUMN `otp` VARCHAR(191) NULL,
+    ADD COLUMN `otpExpiresAt` DATETIME(3) NULL,
+    ADD COLUMN `secretOtp` VARCHAR(191) NULL;
