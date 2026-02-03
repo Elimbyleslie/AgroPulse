@@ -7,22 +7,60 @@ import { Herd } from "../typages/herd.js";
 // CREATE Herd
 // ======================================================
 export const createHerd = async (
-  req: Request<{}, {}, Herd>,
+  req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
-    const { farmId, speciesId, name, photo } = req.body;
+    // 1. Extraction et conversion des types (FormData envoie du texte)
+    const farmId = Number(req.body.farmId);
+    const speciesId = Number(req.body.speciesId);
+    const name = req.body.name;
 
+    // 2. Validation des champs obligatoires
     if (!farmId || !speciesId || !name) {
-      return ResponseApi.error(res, "farmId, speciesId et name sont obligatoires", 400);
+      return ResponseApi.error(
+        res,
+        "Les champs farmId, speciesId et name sont obligatoires",
+        400,
+      );
     }
 
-    const herd = await prisma.herd.create({
-      data: { farmId, speciesId, name, photo },
+    // 3. Vérification si un troupeau avec le même nom existe déjà dans cette ferme
+    const existingHerd = await prisma.herd.findFirst({
+      where: {
+        farmId: farmId,
+        name: {
+          equals: name,
+        },
+      },
     });
 
-    return ResponseApi.success(res, "Herd créée avec succès", 201, herd);
+    if (existingHerd) {
+      return ResponseApi.error(
+        res,
+        `Un troupeau nommé "${name}" existe déjà dans cette ferme.`,
+        400
+      );
+    }
+
+    // 4. Gestion de l'image (via middleware multer)
+    const photoPath = req.file ? `/uploads/herds/${req.file.filename}` : null;
+
+    // 5. Création Prisma
+    const herd = await prisma.herd.create({
+      data: { 
+        farmId, 
+        speciesId, 
+        name, 
+        photo: photoPath 
+      },
+      include: {
+        species: true // Utile pour renvoyer les détails de l'espèce au front
+      }
+    });
+
+    return ResponseApi.success(res, "Troupeau créé avec succès", 201, herd);
   } catch (error) {
     next(error);
   }
@@ -32,9 +70,20 @@ export const createHerd = async (
 // GET ALL Herds
 // ======================================================
 export const getAllHerds = async (
-  req: Request<{}, {}, {}, { search?: string; farmId?: string; speciesId?: string; page?: string; limit?: string }>,
+  req: Request<
+    {},
+    {},
+    {},
+    {
+      search?: string;
+      farmId?: string;
+      speciesId?: string;
+      page?: string;
+      limit?: string;
+    }
+  >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { search, farmId, speciesId } = req.query;
@@ -79,11 +128,12 @@ export const getAllHerds = async (
 export const getHerdById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
-    if (!id || isNaN(Number(id))) return ResponseApi.error(res, "ID invalide", 400);
+    if (!id || isNaN(Number(id)))
+      return ResponseApi.error(res, "ID invalide", 400);
 
     const herd = await prisma.herd.findUnique({
       where: { id: Number(id) },
@@ -104,17 +154,18 @@ export const getHerdById = async (
 export const updateHerd = async (
   req: Request<{ id: string }, {}, Partial<Herd>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
-    if (!id || isNaN(Number(id))) return ResponseApi.error(res, "ID invalide", 400);
+    if (!id || isNaN(Number(id)))
+      return ResponseApi.error(res, "ID invalide", 400);
 
     const { id: _, ...body } = req.body;
 
     const updateData: any = { ...body };
     Object.keys(updateData).forEach(
-      key => updateData[key] === undefined && delete updateData[key]
+      (key) => updateData[key] === undefined && delete updateData[key],
     );
 
     const updated = await prisma.herd.update({
@@ -124,7 +175,8 @@ export const updateHerd = async (
 
     return ResponseApi.success(res, "Herd mise à jour", 200, updated);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Herd non trouvée", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Herd non trouvée", 404);
     next(error);
   }
 };
@@ -135,17 +187,19 @@ export const updateHerd = async (
 export const deleteHerd = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
-    if (!id || isNaN(Number(id))) return ResponseApi.error(res, "ID invalide", 400);
+    if (!id || isNaN(Number(id)))
+      return ResponseApi.error(res, "ID invalide", 400);
 
     const deleted = await prisma.herd.delete({ where: { id: Number(id) } });
 
     return ResponseApi.success(res, "Herd supprimée avec succès", 200, deleted);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Herd non trouvée", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Herd non trouvée", 404);
     next(error);
   }
 };

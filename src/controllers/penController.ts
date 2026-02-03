@@ -5,12 +5,36 @@ import ResponseApi from "../helpers/response.js";
 /**
  * Créer un nouveau pen
  */
-export const createPen = async (req: Request, res: Response, next: NextFunction) => {
+export const createPen = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const { barnId, name, capacity } = req.body;
+    const userId = req.user?.id;
 
     if (!barnId || !name) {
       return ResponseApi.error(res, "BarnId et nom requis", 400);
+    }
+
+      const barn = await prisma.barn.findFirst({
+      where: {
+        id: Number(barnId),
+        farm: {
+          OR: [
+            { managerId: userId },
+            { organization: { users: { some: { id: userId } } } }
+          ]
+        }
+      },
+      include: { farm: true }
+    });
+
+    if (!barn) {
+      return res.status(403).json({ 
+        error: 'Accès non autorisé. Le bâtiment n\'appartient pas à vos fermes.' 
+      });
     }
 
     const pen = await prisma.pen.create({
@@ -19,6 +43,11 @@ export const createPen = async (req: Request, res: Response, next: NextFunction)
         name,
         capacity: capacity ? Number(capacity) : null,
       },
+       include: {
+        barn: {
+          include: { farm: true }
+        }
+      }
     });
 
     ResponseApi.success(res, "Pen créé avec succès", 201, pen);
@@ -30,7 +59,11 @@ export const createPen = async (req: Request, res: Response, next: NextFunction)
 /**
  * Récupérer un pen par son id
  */
-export const getPenById = async (req: Request, res: Response, next: NextFunction) => {
+export const getPenById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const { id } = req.params;
 
@@ -38,8 +71,8 @@ export const getPenById = async (req: Request, res: Response, next: NextFunction
       where: { id: Number(id) },
       include: {
         barn: true,
-        animalMovementsFrom: true,
-        animalMovementsTo: true,
+        movementsFrom: true,
+        movementsTo: true,
       },
     });
 
@@ -56,51 +89,188 @@ export const getPenById = async (req: Request, res: Response, next: NextFunction
 /**
  * Récupérer tous les pens (avec pagination et recherche)
  */
+// Backend - Route GET /pens
 export const getAllPens = async (
-  req: Request<{}, {}, {}, { search?: string; barnId?: string; page?: string; limit?: string }>,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const { search, barnId } = req.query;
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 10;
-    const offset = (page - 1) * limit;
-
-    const where: any = {};
-    if (search) {
-      where.name = { contains: search };
+  req: Request<
+    {},
+    {},
+    {},
+    {
+      farmId?: string;
+      barnId?: string;
+      search?: string;
+      page?: string;
+      limit?: string;
     }
+  >,
+  res: Response,
+  next: NextFunction,
+) => {
+  const { farmId, barnId, search, page = 1, limit = 10 } = req.query;
+  const userId = req.user?.id; // ID de l'utilisateur connecté
+
+  try {
+    const where: any = {};
+
+    // Si barnId est fourni, filtrer directement
     if (barnId) {
+      // Vérifier que le barn appartient à l'utilisateur
+      const barn = await prisma.barn.findFirst({
+        where: {
+          id: Number(barnId),
+          farm: {
+            OR: [
+              { managerId: userId },
+              { organization: { users: { some: { id: userId } } } },
+            ],
+          },
+        },
+      });
+
+      if (!barn) {
+        return res
+          .status(403)
+          .json({ error: "Accès non autorisé à ce bâtiment" });
+      }
+
       where.barnId = Number(barnId);
+    }
+
+    // Si farmId est fourni, filtrer par les barns de cette ferme
+    if (farmId) {
+      // Vérifier que la ferme appartient à l'utilisateur
+      const farm = await prisma.farm.findFirst({
+        where: {
+          id: Number(farmId),
+          OR: [
+            { managerId: userId },
+            { organization: { users: { some: { id: userId } } } },
+          ],
+        },
+      });
+
+      if (!farm) {
+        return res
+          .status(403)
+          .json({ error: "Accès non autorisé à cette ferme" });
+      }
+
+      // Récupérer les IDs des barns de cette ferme
+      const barns = await prisma.barn.findMany({
+        where: { farmId: Number(farmId) },
+        select: { id: true },
+      });
+
+      where.barnId = { in: barns.map((b) => b.id) };
+    }
+
+    // Si ni barnId ni farmId, retourner uniquement les pens des fermes de l'utilisateur
+    if (!barnId && !farmId) {
+      const userFarms = await prisma.farm.findMany({
+        where: {
+          OR: [
+            { managerId: userId },
+            { organization: { users: { some: { id: userId } } } },
+          ],
+        },
+        select: { id: true },
+      });
+
+      const barns = await prisma.barn.findMany({
+        where: { farmId: { in: userFarms.map((f) => f.id) } },
+        select: { id: true },
+      });
+
+      where.barnId = { in: barns.map((b) => b.id) };
+    }
+
+    // Recherche par nom
+    if (search) {
+      where.name = { contains: search, mode: "insensitive" };
     }
 
     const pens = await prisma.pen.findMany({
       where,
-      skip: offset,
-      take: limit,
-      include: { barn: true },
-      orderBy: { id: "desc" },
+      include: {
+        barn: {
+          include: {
+            farm: true,
+          },
+        },
+      },
+      skip: (Number(page) - 1) * Number(limit),
+      take: Number(limit),
     });
 
-    const totalItems = await prisma.pen.count({ where });
-    const totalPages = Math.ceil(totalItems / limit);
+    const total = await prisma.pen.count({ where });
 
-    ResponseApi.success(res, "Pens récupérés avec succès", 200, {
-      pens,
-      pagination: { page, limit, totalItems, totalPages },
+    res.json({
+      meta: { status: 200, message: "Liste des enclos récupérée" },
+      data: {
+        pens,
+        pagination: {
+          currentPage: Number(page),
+          totalItems: total,
+          totalPage: Math.ceil(total / Number(limit)),
+        },
+      },
     });
   } catch (error) {
-    next(error);
+    console.error("Erreur récupération pens:", error);
+    res.status(500).json({ error: "Erreur serveur" });
   }
 };
 
 /**
  * Mettre à jour un pen
  */
-export const updatePen = async (req: Request, res: Response, next: NextFunction) => {
+export const updatePen = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const { id } = req.params;
+    const { barnId } = req.body;
+    const userId = req.user?.id;
+
+       // Vérifier que le pen appartient à l'utilisateur
+    const existingPen = await prisma.pen.findFirst({
+      where: {
+        id: Number(id),
+        barn: {
+          farm: {
+            OR: [
+              { managerId: userId },
+              { organization: { users: { some: { id: userId } } } }
+            ]
+          }
+        }
+      }
+    });
+
+    if (!existingPen) {
+      return res.status(403).json({ error: 'Accès non autorisé à cet enclos' });
+    }
+
+    // Si barnId change, vérifier le nouveau barn
+    if (barnId && barnId !== existingPen.barnId) {
+      const newBarn = await prisma.barn.findFirst({
+        where: {
+          id: Number(barnId),
+          farm: {
+            OR: [
+              { managerId: userId },
+              { organization: { users: { some: { id: userId } } } }
+            ]
+          }
+        }
+      });
+
+      if (!newBarn) {
+        return res.status(403).json({ error: 'Accès non autorisé au nouveau bâtiment' });
+      }
+    }
 
     const updatedPen = await prisma.pen.update({
       where: { id: Number(id) },
@@ -120,9 +290,33 @@ export const updatePen = async (req: Request, res: Response, next: NextFunction)
 /**
  * Supprimer un pen
  */
-export const deletePen = async (req: Request, res: Response, next: NextFunction) => {
+export const deletePen = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const { id } = req.params;
+    const userId = req.user?.id;
+
+    // Vérifier que le pen appartient à l'utilisateur
+        const pen = await prisma.pen.findFirst({
+      where: {
+        id: Number(id),
+        barn: {
+          farm: {
+            OR: [
+              { managerId: userId },
+              { organization: { users: { some: { id:userId } } } }
+            ]
+          }
+        }
+      }
+    });
+
+    if (!pen) {
+      return res.status(403).json({ error: 'Accès non autorisé à cet enclos' });
+    }
 
     await prisma.pen.delete({
       where: { id: Number(id) },

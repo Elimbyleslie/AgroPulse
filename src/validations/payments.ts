@@ -6,7 +6,8 @@ export const createPaymentSchema = Yup.object().shape({
   method: Yup.string()
     .oneOf(["card", "mobile_money", "orange_money", "paypal", "others"])
     .required("La méthode de paiement est obligatoire"),
-  status: Yup.string().oneOf(["PENDING", "SUCCESS", "FAILED", "CANCELLED", "REFUNDED"])
+  status: Yup.string()
+    .oneOf(["PENDING", "SUCCESS", "FAILED", "CANCELLED", "REFUNDED"])
     .default("PENDING"),
   reference: Yup.string().required("La référence est obligatoire"),
   description: Yup.string().optional(),
@@ -17,8 +18,12 @@ export const createPaymentSchema = Yup.object().shape({
 export const updatePaymentSchema = Yup.object().shape({
   amount: Yup.number().optional(),
   currency: Yup.string().optional(),
-  method: Yup.string().oneOf(["card", "mobile_money", "orange_money", "paypal", "others"]).optional(),
-  status: Yup.string().oneOf(["PENDING", "SUCCESS", "FAILED", "CANCELLED", "REFUNDED"]).optional(),
+  method: Yup.string()
+    .oneOf(["card", "mobile_money", "orange_money", "paypal", "others"])
+    .optional(),
+  status: Yup.string()
+    .oneOf(["PENDING", "SUCCESS", "FAILED", "CANCELLED", "REFUNDED"])
+    .optional(),
   reference: Yup.string().optional(),
   description: Yup.string().optional(),
   userId: Yup.number().optional(),

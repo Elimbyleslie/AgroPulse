@@ -9,7 +9,7 @@ import { AnimalTransfer } from "../typages/animalTransfer.js";
 export const createAnimalTransfer = async (
   req: Request<{}, {}, AnimalTransfer>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const transfer = await prisma.animalTransfer.create({ data: req.body });
@@ -23,9 +23,20 @@ export const createAnimalTransfer = async (
 // GET ALL Animal Transfers (pagination + filtre)
 // ======================================================
 export const getAllAnimalTransfers = async (
-  req: Request<{}, {}, {}, { animalId?: string; fromLotId?: string; toLotId?: string; page?: string; limit?: string }>,
+  req: Request<
+    {},
+    {},
+    {},
+    {
+      animalId?: string;
+      fromLotId?: string;
+      toLotId?: string;
+      page?: string;
+      limit?: string;
+    }
+  >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { animalId, fromLotId, toLotId } = req.query;
@@ -70,11 +81,12 @@ export const getAllAnimalTransfers = async (
 export const getAnimalTransferById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
-    if (!id || isNaN(Number(id))) return ResponseApi.error(res, "ID invalide", 400);
+    if (!id || isNaN(Number(id)))
+      return ResponseApi.error(res, "ID invalide", 400);
 
     const transfer = await prisma.animalTransfer.findUnique({
       where: { id: Number(id) },
@@ -95,7 +107,7 @@ export const getAnimalTransferById = async (
 export const updateAnimalTransfer = async (
   req: Request<{ id: string }, {}, Partial<AnimalTransfer>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -107,7 +119,8 @@ export const updateAnimalTransfer = async (
 
     return ResponseApi.success(res, "Transfert mis à jour", 200, updated);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Transfert non trouvé", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Transfert non trouvé", 404);
     next(error);
   }
 };
@@ -118,16 +131,19 @@ export const updateAnimalTransfer = async (
 export const deleteAnimalTransfer = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
 
-    const deleted = await prisma.animalTransfer.delete({ where: { id: Number(id) } });
+    const deleted = await prisma.animalTransfer.delete({
+      where: { id: Number(id) },
+    });
 
     return ResponseApi.success(res, "Transfert supprimé", 200, deleted);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Transfert non trouvé", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Transfert non trouvé", 404);
     next(error);
   }
 };

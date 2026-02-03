@@ -3,7 +3,11 @@ import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 
 // CREATE
-export const createActivityLog = async (req: Request, res: Response, next: NextFunction) => {
+export const createActivityLog = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const log = await prisma.activityLog.create({
       data: req.body,
@@ -16,7 +20,11 @@ export const createActivityLog = async (req: Request, res: Response, next: NextF
 };
 
 // GET ALL
-export const getAllActivityLogs = async (req: Request<{}, {}, {}, { userId?: string; page?: string; limit?: string }>, res: Response, next: NextFunction) => {
+export const getAllActivityLogs = async (
+  req: Request<{}, {}, {}, { userId?: string; page?: string; limit?: string }>,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const { userId } = req.query;
     const page = Number(req.query.page) || 1;
@@ -38,7 +46,13 @@ export const getAllActivityLogs = async (req: Request<{}, {}, {}, { userId?: str
 
     return ResponseApi.success(res, "Liste des ActivityLogs récupérée", 200, {
       logs,
-      pagination: { currentPage: page, previousPage: page > 1 ? page - 1 : null, nextPage: page * limit < totalItems ? page + 1 : null, totalItems, totalPage: Math.ceil(totalItems / limit) },
+      pagination: {
+        currentPage: page,
+        previousPage: page > 1 ? page - 1 : null,
+        nextPage: page * limit < totalItems ? page + 1 : null,
+        totalItems,
+        totalPage: Math.ceil(totalItems / limit),
+      },
     });
   } catch (error) {
     next(error);
@@ -46,9 +60,16 @@ export const getAllActivityLogs = async (req: Request<{}, {}, {}, { userId?: str
 };
 
 // GET BY ID
-export const getActivityLogById = async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+export const getActivityLogById = async (
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
-    const log = await prisma.activityLog.findUnique({ where: { id: Number(req.params.id) }, include: { user: true } });
+    const log = await prisma.activityLog.findUnique({
+      where: { id: Number(req.params.id) },
+      include: { user: true },
+    });
     if (!log) return ResponseApi.error(res, "ActivityLog non trouvé", 404);
     return ResponseApi.success(res, "ActivityLog récupéré", 200, log);
   } catch (error) {
@@ -57,23 +78,39 @@ export const getActivityLogById = async (req: Request<{ id: string }>, res: Resp
 };
 
 // UPDATE
-export const updateActivityLog = async (req: Request<{ id: string }, {}, any>, res: Response, next: NextFunction) => {
+export const updateActivityLog = async (
+  req: Request<{ id: string }, {}, any>,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
-    const updated = await prisma.activityLog.update({ where: { id: Number(req.params.id) }, data: req.body, include: { user: true } });
+    const updated = await prisma.activityLog.update({
+      where: { id: Number(req.params.id) },
+      data: req.body,
+      include: { user: true },
+    });
     return ResponseApi.success(res, "ActivityLog mis à jour", 200, updated);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "ActivityLog non trouvé", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "ActivityLog non trouvé", 404);
     next(error);
   }
 };
 
 // DELETE
-export const deleteActivityLog = async (req: Request<{ id: string }>, res: Response, next: NextFunction) => {
+export const deleteActivityLog = async (
+  req: Request<{ id: string }>,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
-    const deleted = await prisma.activityLog.delete({ where: { id: Number(req.params.id) } });
+    const deleted = await prisma.activityLog.delete({
+      where: { id: Number(req.params.id) },
+    });
     return ResponseApi.success(res, "ActivityLog supprimé", 200, deleted);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "ActivityLog non trouvé", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "ActivityLog non trouvé", 404);
     next(error);
   }
 };

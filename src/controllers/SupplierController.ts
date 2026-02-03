@@ -3,18 +3,15 @@ import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 import { Supplier } from "../typages/feed.js";
 
-
 // ======================================================
 // CREATE SUPPLIER
 // ======================================================
 export const createFeedSupplier = async (
   req: Request<{}, {}, Supplier>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
-  
-
     const supplier = await prisma.supplier.create({
       data: req.body,
     });
@@ -23,7 +20,7 @@ export const createFeedSupplier = async (
       res,
       "Fournisseur créé avec succès",
       201,
-      supplier
+      supplier,
     );
   } catch (error) {
     next(error);
@@ -36,7 +33,7 @@ export const createFeedSupplier = async (
 export const getAllFeedSuppliers = async (
   req: Request<{}, {}, {}, { page?: string; limit?: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const page = Number(req.query.page) || 1;
@@ -75,7 +72,7 @@ export const getAllFeedSuppliers = async (
 export const getFeedSupplierById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -88,8 +85,7 @@ export const getFeedSupplierById = async (
       include: { purchases: true },
     });
 
-    if (!supplier)
-      return ResponseApi.error(res, "Fournisseur non trouvé", 404);
+    if (!supplier) return ResponseApi.error(res, "Fournisseur non trouvé", 404);
 
     return ResponseApi.success(res, "Fournisseur récupéré", 200, supplier);
   } catch (error) {
@@ -103,7 +99,7 @@ export const getFeedSupplierById = async (
 export const updateFeedSupplier = async (
   req: Request<{ id: string }, {}, Partial<Supplier>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -130,7 +126,7 @@ export const updateFeedSupplier = async (
 export const deleteFeedSupplier = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;

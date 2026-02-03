@@ -13,4 +13,3 @@ export interface Birth {
   userId?: number;
   createdAt?: string;
 }
-

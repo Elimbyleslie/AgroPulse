@@ -9,7 +9,7 @@ import { Production } from "../typages/production.js";
 export const createProduction = async (
   req: Request<{}, {}, Production>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const {
@@ -38,7 +38,12 @@ export const createProduction = async (
       },
     });
 
-    return ResponseApi.success(res, "Production créée avec succès", 201, production);
+    return ResponseApi.success(
+      res,
+      "Production créée avec succès",
+      201,
+      production,
+    );
   } catch (error) {
     next(error);
   }
@@ -48,9 +53,14 @@ export const createProduction = async (
 // GET ALL Productions
 // ======================================================
 export const getAllProductions = async (
-  req: Request<{}, {}, {}, { lotId?: string; productType?: string; page?: string; limit?: string }>,
+  req: Request<
+    {},
+    {},
+    {},
+    { lotId?: string; productType?: string; page?: string; limit?: string }
+  >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { lotId, productType } = req.query;
@@ -60,7 +70,8 @@ export const getAllProductions = async (
 
     const where: any = {};
     if (lotId) where.lotId = Number(lotId);
-    if (productType) where.productType = { contains: productType, mode: "insensitive" };
+    if (productType)
+      where.productType = { contains: productType, mode: "insensitive" };
 
     const productions = await prisma.production.findMany({
       where,
@@ -97,18 +108,20 @@ export const getAllProductions = async (
 export const getProductionById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
-    if (!id || isNaN(Number(id))) return ResponseApi.error(res, "ID invalide", 400);
+    if (!id || isNaN(Number(id)))
+      return ResponseApi.error(res, "ID invalide", 400);
 
     const production = await prisma.production.findUnique({
       where: { id: Number(id) },
       include: { lot: true, user: true, saleItem: true },
     });
 
-    if (!production) return ResponseApi.error(res, "Production non trouvée", 404);
+    if (!production)
+      return ResponseApi.error(res, "Production non trouvée", 404);
 
     return ResponseApi.success(res, "Production récupérée", 200, production);
   } catch (error) {
@@ -122,11 +135,12 @@ export const getProductionById = async (
 export const updateProduction = async (
   req: Request<{ id: string }, {}, Partial<Production>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
-    if (!id || isNaN(Number(id))) return ResponseApi.error(res, "ID invalide", 400);
+    if (!id || isNaN(Number(id)))
+      return ResponseApi.error(res, "ID invalide", 400);
 
     const updated = await prisma.production.update({
       where: { id: Number(id) },
@@ -135,7 +149,8 @@ export const updateProduction = async (
 
     return ResponseApi.success(res, "Production mise à jour", 200, updated);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Production non trouvée", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Production non trouvée", 404);
     next(error);
   }
 };
@@ -146,11 +161,12 @@ export const updateProduction = async (
 export const deleteProduction = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
-    if (!id || isNaN(Number(id))) return ResponseApi.error(res, "ID invalide", 400);
+    if (!id || isNaN(Number(id)))
+      return ResponseApi.error(res, "ID invalide", 400);
 
     const deleted = await prisma.production.delete({
       where: { id: Number(id) },
@@ -158,7 +174,8 @@ export const deleteProduction = async (
 
     return ResponseApi.success(res, "Production supprimée", 200, deleted);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Production non trouvée", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Production non trouvée", 404);
     next(error);
   }
 };

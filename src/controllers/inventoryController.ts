@@ -5,9 +5,9 @@ import { Inventory } from "../typages/inventory.js";
 
 // CREATE
 export const createInventory = async (
-  req: Request <{}, {}, Inventory>,
+  req: Request<{}, {}, Inventory>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const inventory = await prisma.inventory.create({
@@ -22,9 +22,9 @@ export const createInventory = async (
 
 // GET ALL avec pagination
 export const getAllInventories = async (
-  req: Request<{}, {}, {}, { farmId?: string; page?: string; limit?: string } >,
+  req: Request<{}, {}, {}, { farmId?: string; page?: string; limit?: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { farmId } = req.query;
@@ -64,7 +64,7 @@ export const getAllInventories = async (
 export const getInventoryById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const inventory = await prisma.inventory.findUnique({
@@ -82,7 +82,7 @@ export const getInventoryById = async (
 export const updateInventory = async (
   req: Request<{ id: string }, {}, Inventory>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const updated = await prisma.inventory.update({
@@ -102,7 +102,7 @@ export const updateInventory = async (
 export const deleteInventory = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const deleted = await prisma.inventory.delete({

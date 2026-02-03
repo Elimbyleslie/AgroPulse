@@ -6,7 +6,7 @@ import ResponseApi from "../helpers/response.js";
 export const createFinancialReport = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const report = await prisma.financialReport.create({
@@ -22,14 +22,9 @@ export const createFinancialReport = async (
 
 // GET ALL
 export const getAllFinancialReports = async (
-  req: Request<
-    {},
-    {},
-    {},
-    { farmId?: string; page?: string; limit?: string }
-  >,
+  req: Request<{}, {}, {}, { farmId?: string; page?: string; limit?: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { farmId } = req.query;
@@ -63,7 +58,7 @@ export const getAllFinancialReports = async (
           totalItems,
           totalPage: Math.ceil(totalItems / limit),
         },
-      }
+      },
     );
   } catch (error) {
     next(error);
@@ -74,7 +69,7 @@ export const getAllFinancialReports = async (
 export const getFinancialReportById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const report = await prisma.financialReport.findUnique({
@@ -95,7 +90,7 @@ export const getFinancialReportById = async (
 export const updateFinancialReport = async (
   req: Request<{ id: string }, {}, any>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const updated = await prisma.financialReport.update({
@@ -108,7 +103,7 @@ export const updateFinancialReport = async (
       res,
       "Rapport financier mis à jour",
       200,
-      updated
+      updated,
     );
   } catch (error: any) {
     if (error.code === "P2025")
@@ -121,19 +116,14 @@ export const updateFinancialReport = async (
 export const deleteFinancialReport = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const deleted = await prisma.financialReport.delete({
       where: { id: Number(req.params.id) },
     });
 
-    return ResponseApi.success(
-      res,
-      "Rapport financier supprimé",
-      200,
-      deleted
-    );
+    return ResponseApi.success(res, "Rapport financier supprimé", 200, deleted);
   } catch (error: any) {
     if (error.code === "P2025")
       return ResponseApi.error(res, "Rapport financier non trouvé", 404);

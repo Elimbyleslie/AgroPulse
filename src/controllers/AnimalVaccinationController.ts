@@ -3,14 +3,13 @@ import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 import { AnimalVaccination } from "../typages/animalVaccination.js";
 
-
 // ======================================================
 // CREATE
 // ======================================================
 export const createAnimalVaccination = async (
   req: Request<{}, {}, AnimalVaccination>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const vaccination = await prisma.animalVaccination.create({
@@ -23,7 +22,6 @@ export const createAnimalVaccination = async (
   }
 };
 
-
 // ======================================================
 // GET ALL + filtres + pagination
 // ======================================================
@@ -35,7 +33,7 @@ export const getAllAnimalVaccinations = async (
     { animalId?: string; lotId?: string; page?: string; limit?: string }
   >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { animalId, lotId } = req.query;
@@ -77,14 +75,13 @@ export const getAllAnimalVaccinations = async (
   }
 };
 
-
 // ======================================================
 // GET BY ID
 // ======================================================
 export const getAnimalVaccinationById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -112,14 +109,13 @@ export const getAnimalVaccinationById = async (
   }
 };
 
-
 // ======================================================
 // UPDATE
 // ======================================================
 export const updateAnimalVaccination = async (
   req: Request<{ id: string }, {}, Partial<AnimalVaccination>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -138,14 +134,13 @@ export const updateAnimalVaccination = async (
   }
 };
 
-
 // ======================================================
 // DELETE
 // ======================================================
 export const deleteAnimalVaccination = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;

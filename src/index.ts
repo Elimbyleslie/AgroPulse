@@ -13,16 +13,22 @@ import corsOptions from "./config/corsOptions.js";
 import credentials from "./middlewares/credential.js";
 import { authenticate } from "./middlewares/auth.js";
 import { checkEmailVerified } from "./middlewares/checkEmailVerified.js";
-
+import { getDashboardStatus } from "./middlewares/auth.js";
 import router from "./routers/index.js";
 import { errorHandler, notFound } from "./middlewares/errorHandle.js";
+import passport from "passport";
+import "./config/passport.js";
 
 dotenv.config();
 
 const app = express();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+const uploadsPath = path.resolve(__dirname, "..", "..", "uploads");
+console.log("📂 Dossier uploads servi depuis :", uploadsPath);
+app.use("/uploads", express.static(uploadsPath));
 // =====================
 // Middlewares globaux
 // =====================
@@ -33,7 +39,7 @@ app.use(
   helmet({
     contentSecurityPolicy: false,
     frameguard: false,
-  })
+  }),
 );
 
 app.use(credentials);
@@ -42,14 +48,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-app.use(
-  fileUpload({
-    createParentPath: true,
-    limits: { fileSize: 10 * 1024 * 1024 },
-  })
-);
 
-app.use("/public", express.static(path.join(__dirname, "..", "public")));
 
 // =====================
 // Routes publiques
@@ -70,6 +69,8 @@ app.get("/health", (req, res) => {
   });
 });
 
+app.use(passport.initialize());
+
 // Auth (public)
 app.use("/api/auth", router.auth);
 
@@ -79,7 +80,7 @@ app.use("/api/auth", router.auth);
 
 app.use("/api", authenticate);
 app.use("/api", checkEmailVerified);
-
+app.use("/api/dashboard/status", getDashboardStatus);
 // =====================
 // Routes protégées par authentification
 // =====================

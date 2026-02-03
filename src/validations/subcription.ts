@@ -1,15 +1,15 @@
-import  * as yup from 'yup';
+import * as yup from "yup";
 
 export const createSubscriptionSchema = yup.object().shape({
-    name: yup.string().required("Nom est obligatoire"),
-    price: yup.number().required("Prix est obligatoire"),
-    duration: yup.number().required("Duree est obligatoire"),
-    description: yup.string().required("Description est obligatoire"),
+  name: yup.string().required("Nom est obligatoire"),
+  price: yup.number().required("Prix est obligatoire"),
+  duration: yup.number().required("Duree est obligatoire"),
+  description: yup.string().required("Description est obligatoire"),
 });
 
 export const updateSubscriptionSchema = yup.object().shape({
-    name: yup.string(),
-    price: yup.number(),
-    duration: yup.number(),
-    description: yup.string(),
+  name: yup.string(),
+  price: yup.number(),
+  duration: yup.number(),
+  description: yup.string(),
 });

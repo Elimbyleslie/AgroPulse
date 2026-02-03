@@ -5,29 +5,35 @@ import {
   getAnimalById,
   updateAnimal,
   deleteAnimal,
+  assignAnimal,
+  unassignAnimal,
 } from "../controllers/animalController.js";
-import { createAnimalSchema, updateAnimalSchema } from "../validations/animal.js";
+import {
+  createAnimalSchema,
+  updateAnimalSchema,
+} from "../validations/animal.js";
 import { validator } from "../middlewares/validator.middleware.js";
-import { authenticate,authorizePermission } from "../middlewares/auth.js";
+import { authenticate, authorizePermission } from "../middlewares/auth.js";
 import { Permission } from "../helpers/permissions.js";
-
+import { uploadAnimalPhoto } from "../middlewares/uploadMiddleware.js";
 const router = Router();
 
 // CREATE => l'utilisateur doit avoir CREATE_ANIMAL
+// ✅ À GARDER ET CORRIGER
 router.post(
   "/",
   authenticate,
   authorizePermission([Permission.CREATE_ANIMAL]),
-  validator(createAnimalSchema),
+  uploadAnimalPhoto.single('photo'), // MULTER EN PREMIER
+  validator(createAnimalSchema),      // VALIDATOR EN DEUXIÈME
   createAnimal
 );
-
 // READ ALL => l'utilisateur doit avoir READ_ANIMAL
 router.get(
   "/",
   authenticate,
   authorizePermission([Permission.READ_ANIMAL]),
-  getAllAnimals
+  getAllAnimals,
 );
 
 // READ ONE => READ_ANIMAL
@@ -35,7 +41,7 @@ router.get(
   "/:id",
   authenticate,
   authorizePermission([Permission.READ_ANIMAL]),
-  getAnimalById
+  getAnimalById,
 );
 
 // UPDATE => UPDATE_ANIMAL
@@ -43,16 +49,31 @@ router.put(
   "/:id",
   authenticate,
   authorizePermission([Permission.UPDATE_ANIMAL]),
+  uploadAnimalPhoto.single('photo'),
   validator(updateAnimalSchema),
-  updateAnimal
+  updateAnimal,
 );
-
 // DELETE => DELETE_ANIMAL
 router.delete(
   "/:id",
   authenticate,
   authorizePermission([Permission.DELETE_ANIMAL]),
-  deleteAnimal
+  deleteAnimal,
 );
+// ASSIGN ANIMAL TO LOT => UPDATE_ANIMAL
+router.post(
+  "/:id/assign",
+  authenticate,
+  authorizePermission([Permission.UPDATE_ANIMAL]),
+  assignAnimal,
+);
+// UNASSIGN ANIMAL FROM LOT => UPDATE_ANIMAL
+router.post(
+  "/:id/unassign",
+  authenticate,
+  authorizePermission([Permission.UPDATE_ANIMAL]),
+  unassignAnimal,
+);
+
 
 export default router;

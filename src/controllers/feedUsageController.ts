@@ -6,7 +6,7 @@ import ResponseApi from "../helpers/response.js";
 export const createFeedUsage = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const usage = await prisma.feedUsage.create({
@@ -28,7 +28,7 @@ export const getAllFeedUsages = async (
     { lotId?: string; feedStockId?: string; page?: string; limit?: string }
   >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { lotId, feedStockId } = req.query;
@@ -67,7 +67,7 @@ export const getAllFeedUsages = async (
 export const getFeedUsageById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const usage = await prisma.feedUsage.findUnique({
@@ -85,7 +85,7 @@ export const getFeedUsageById = async (
 export const updateFeedUsage = async (
   req: Request<{ id: string }, {}, any>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const updated = await prisma.feedUsage.update({
@@ -105,7 +105,7 @@ export const updateFeedUsage = async (
 export const deleteFeedUsage = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const deleted = await prisma.feedUsage.delete({

@@ -6,7 +6,7 @@ import ResponseApi from "../helpers/response.js";
 export const createReport = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const report = await prisma.report.create({
@@ -22,7 +22,7 @@ export const createReport = async (
 export const getAllReports = async (
   req: Request<{}, {}, {}, { farmId?: string; page?: string; limit?: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { farmId } = req.query;
@@ -60,7 +60,7 @@ export const getAllReports = async (
 export const getReportById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const report = await prisma.report.findUnique({
@@ -78,7 +78,7 @@ export const getReportById = async (
 export const updateReport = async (
   req: Request<{ id: string }, {}, any>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const updated = await prisma.report.update({
@@ -98,7 +98,7 @@ export const updateReport = async (
 export const deleteReport = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const deleted = await prisma.report.delete({

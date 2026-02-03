@@ -17,10 +17,37 @@ import { Permission } from "../helpers/permissions.js";
 
 const router = Router();
 
-router.post("/", authenticate, authorizePermission([Permission.CREATE_FINANCIAL_REPORT]), validator(createFinancialReportSchema), createFinancialReport);
-router.get("/", authenticate, authorizePermission([Permission.READ_FINANCIAL_REPORT]), getAllFinancialReports);
-router.get("/:id", authenticate, authorizePermission([Permission.READ_FINANCIAL_REPORT]), getFinancialReportById);
-router.put( "/:id",authenticate, authorizePermission([Permission.UPDATE_FINANCIAL_REPORT]), validator(updateFinancialReportSchema), updateFinancialReport);
-router.delete("/:id", authenticate, authorizePermission([Permission.DELETE_FINANCIAL_REPORT]), deleteFinancialReport);
+router.post(
+  "/",
+  authenticate,
+  authorizePermission([Permission.CREATE_FINANCIAL_REPORT]),
+  validator(createFinancialReportSchema),
+  createFinancialReport,
+);
+router.get(
+  "/",
+  authenticate,
+  authorizePermission([Permission.READ_FINANCIAL_REPORT]),
+  getAllFinancialReports,
+);
+router.get(
+  "/:id",
+  authenticate,
+  authorizePermission([Permission.READ_FINANCIAL_REPORT]),
+  getFinancialReportById,
+);
+router.put(
+  "/:id",
+  authenticate,
+  authorizePermission([Permission.UPDATE_FINANCIAL_REPORT]),
+  validator(updateFinancialReportSchema),
+  updateFinancialReport,
+);
+router.delete(
+  "/:id",
+  authenticate,
+  authorizePermission([Permission.DELETE_FINANCIAL_REPORT]),
+  deleteFinancialReport,
+);
 
 export default router;

@@ -3,20 +3,19 @@ import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 import { FeedPurchase } from "../typages/feed.js";
 
-
 // ======================================================
 // CREATE PURCHASE
 // ======================================================
 export const createFeedPurchase = async (
   req: Request<{}, {}, FeedPurchase>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
-       if (req.body.quantity && req.body.unitPrice) {
+    if (req.body.quantity && req.body.unitPrice) {
       req.body.totalAmount = req.body.quantity * req.body.unitPrice;
     }
-    
+
     const purchase = await prisma.feedPurchase.create({
       data: req.body,
     });
@@ -25,7 +24,7 @@ export const createFeedPurchase = async (
       res,
       "Achat enegistré avec succès",
       201,
-      purchase
+      purchase,
     );
   } catch (error) {
     next(error);
@@ -36,9 +35,14 @@ export const createFeedPurchase = async (
 // GET ALL PURCHASES
 // ======================================================
 export const getAllFeedPurchases = async (
-  req: Request<{}, {}, {}, { supplierId?: string; page?: string; limit?: string }>,
+  req: Request<
+    {},
+    {},
+    {},
+    { supplierId?: string; page?: string; limit?: string }
+  >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { supplierId } = req.query;
@@ -82,7 +86,7 @@ export const getAllFeedPurchases = async (
 export const getFeedPurchaseById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -95,8 +99,7 @@ export const getFeedPurchaseById = async (
       include: { supplier: true, farm: true },
     });
 
-    if (!purchase)
-      return ResponseApi.error(res, "Achat non trouvé", 404);
+    if (!purchase) return ResponseApi.error(res, "Achat non trouvé", 404);
 
     return ResponseApi.success(res, "Achat récupéré", 200, purchase);
   } catch (error) {
@@ -110,14 +113,14 @@ export const getFeedPurchaseById = async (
 export const updateFeedPurchase = async (
   req: Request<{ id: string }, {}, Partial<FeedPurchase>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
 
     if (!id || isNaN(Number(id)))
       return ResponseApi.error(res, "ID invalide", 400);
-    // auto calcul 
+    // auto calcul
     if (req.body.quantity && req.body.unitPrice) {
       req.body.totalAmount = req.body.quantity * req.body.unitPrice;
     }
@@ -141,7 +144,7 @@ export const updateFeedPurchase = async (
 export const deleteFeedPurchase = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;

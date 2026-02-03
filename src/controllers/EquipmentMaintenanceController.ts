@@ -6,7 +6,7 @@ import ResponseApi from "../helpers/response.js";
 export const createEquipmentMaintenance = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const maintenance = await prisma.equipmentMaintenance.create({
@@ -23,7 +23,7 @@ export const createEquipmentMaintenance = async (
 export const getAllEquipmentMaintenances = async (
   req: Request<{}, {}, {}, { farmId?: string; page?: string; limit?: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { farmId } = req.query;
@@ -61,7 +61,7 @@ export const getAllEquipmentMaintenances = async (
 export const getEquipmentMaintenanceById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const maintenance = await prisma.equipmentMaintenance.findUnique({
@@ -80,7 +80,7 @@ export const getEquipmentMaintenanceById = async (
 export const updateEquipmentMaintenance = async (
   req: Request<{ id: string }, {}, any>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const updated = await prisma.equipmentMaintenance.update({
@@ -100,7 +100,7 @@ export const updateEquipmentMaintenance = async (
 export const deleteEquipmentMaintenance = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const deleted = await prisma.equipmentMaintenance.delete({

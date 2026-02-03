@@ -1,4 +1,4 @@
-import yup from 'yup';
+import yup from "yup";
 
 const passwordRules: RegExp = /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{5,}$/;
 
@@ -8,11 +8,11 @@ export const createdUserSchema = yup.object({
   phone: yup.string().required(),
   password: yup
     .string()
-    .matches(passwordRules, { message: 'créer un mot de passe plus  securisé' })
+    .matches(passwordRules, { message: "créer un mot de passe plus  securisé" })
     .required()
     .min(8) as yup.StringSchema,
   passwordConfirmation: yup
     .string()
-    .oneOf([yup.ref('password')], 'les mots de passe doivent correspondre')
+    .oneOf([yup.ref("password")], "les mots de passe doivent correspondre")
     .required(),
 });

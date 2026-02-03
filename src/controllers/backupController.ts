@@ -5,7 +5,7 @@ import ResponseApi from "../helpers/response.js";
 export const createBackup = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const backup = await prisma.backup.create({
@@ -26,7 +26,7 @@ export const getAllBackups = async (
     { organizationId?: string; page?: string; limit?: string }
   >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { organizationId } = req.query;
@@ -64,7 +64,7 @@ export const getAllBackups = async (
 export const getBackupById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const backup = await prisma.backup.findUnique({
@@ -82,7 +82,7 @@ export const getBackupById = async (
 export const updateBackup = async (
   req: Request<{ id: string }, {}, any>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const updated = await prisma.backup.update({
@@ -102,7 +102,7 @@ export const updateBackup = async (
 export const deleteBackup = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const deleted = await prisma.backup.delete({

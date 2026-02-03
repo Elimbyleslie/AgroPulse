@@ -9,7 +9,7 @@ import { AnimalTreatment } from "../typages/animalTreatement.js";
 export const createAnimalTreatment = async (
   req: Request<{}, {}, AnimalTreatment>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const treatment = await prisma.animalTreatment.create({
@@ -33,7 +33,7 @@ export const getAllAnimalTreatments = async (
     { animalId?: string; lotId?: string; page?: string; limit?: string }
   >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { animalId, lotId } = req.query;
@@ -81,7 +81,7 @@ export const getAllAnimalTreatments = async (
 export const getAnimalTreatmentById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -115,7 +115,7 @@ export const getAnimalTreatmentById = async (
 export const updateAnimalTreatment = async (
   req: Request<{ id: string }, {}, Partial<AnimalTreatment>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -140,7 +140,7 @@ export const updateAnimalTreatment = async (
 export const deleteAnimalTreatment = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;

@@ -9,7 +9,7 @@ import { AnimalDeath } from "../typages/animalDeath.js";
 export const createAnimalDeath = async (
   req: Request<{}, {}, AnimalDeath>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const death = await prisma.animalDeath.create({ data: req.body });
@@ -23,9 +23,14 @@ export const createAnimalDeath = async (
 // GET ALL Animal Deaths (pagination + filtre)
 // ======================================================
 export const getAllAnimalDeaths = async (
-  req: Request<{}, {}, {}, { animalId?: string; lotId?: string; page?: string; limit?: string }>,
+  req: Request<
+    {},
+    {},
+    {},
+    { animalId?: string; lotId?: string; page?: string; limit?: string }
+  >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { animalId, lotId } = req.query;
@@ -43,7 +48,7 @@ export const getAllAnimalDeaths = async (
       take: limit,
       where,
       orderBy: { dateOfDeath: "desc" },
-      include: { animal: true, lot: true, recorder: true },
+      include: { animal: true, lot: true, recorder: true  },
     });
 
     const totalItems = await prisma.animalDeath.count({ where });
@@ -69,11 +74,12 @@ export const getAllAnimalDeaths = async (
 export const getAnimalDeathById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
-    if (!id || isNaN(Number(id))) return ResponseApi.error(res, "ID invalide", 400);
+    if (!id || isNaN(Number(id)))
+      return ResponseApi.error(res, "ID invalide", 400);
 
     const death = await prisma.animalDeath.findUnique({
       where: { id: Number(id) },
@@ -94,7 +100,7 @@ export const getAnimalDeathById = async (
 export const updateAnimalDeath = async (
   req: Request<{ id: string }, {}, Partial<AnimalDeath>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -106,7 +112,8 @@ export const updateAnimalDeath = async (
 
     return ResponseApi.success(res, "Décès mis à jour", 200, updated);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Décès non trouvé", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Décès non trouvé", 404);
     next(error);
   }
 };
@@ -117,16 +124,19 @@ export const updateAnimalDeath = async (
 export const deleteAnimalDeath = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
 
-    const deleted = await prisma.animalDeath.delete({ where: { id: Number(id) } });
+    const deleted = await prisma.animalDeath.delete({
+      where: { id: Number(id) },
+    });
 
     return ResponseApi.success(res, "Décès supprimé", 200, deleted);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Décès non trouvé", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Décès non trouvé", 404);
     next(error);
   }
 };

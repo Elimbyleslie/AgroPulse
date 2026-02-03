@@ -8,13 +8,12 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist",
-    "sourceMap": true ,
+    "sourceMap": true,
     "baseUrl": "./src",
     "paths": {
       "@/*": ["*"]
     },
-    "typeRoots": ["src/types", "./node_modules/@types"],
-
+    "typeRoots": ["src/types", "./node_modules/@types"]
   },
   "include": ["src/**/*"]
 }

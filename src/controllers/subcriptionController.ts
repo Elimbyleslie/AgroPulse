@@ -8,7 +8,7 @@ import { SubscriptionStatus } from "../../generated/prisma/enums.js";
 // Créer un abonnement
 export const createSubscription = async (
   req: Request<{}, {}, Subscription>,
-  res: Response
+  res: Response,
 ) => {
   try {
     const { organizationId, planId, renewalType } = req.body;
@@ -44,7 +44,10 @@ export const createSubscription = async (
 };
 
 // Lister les abonnements d'une organisation avec pagination et search
-export const getOrganizationSubscriptions = async (req: Request, res: Response) => {
+export const getOrganizationSubscriptions = async (
+  req: Request,
+  res: Response,
+) => {
   try {
     const { organizationId } = req.params;
     const { page = "1", limit = "10", search = "" } = req.query;
@@ -55,7 +58,12 @@ export const getOrganizationSubscriptions = async (req: Request, res: Response) 
       skip: Number(skip),
       include: { plan: true },
     });
-    return ResponseApi.success(res, "Liste des abonnements", 200, subscriptions);
+    return ResponseApi.success(
+      res,
+      "Liste des abonnements",
+      200,
+      subscriptions,
+    );
   } catch (error) {
     console.error(error);
     return ResponseApi.error(res, "Erreur serveur", 500);
@@ -70,13 +78,14 @@ export const getSubscriptionById = async (req: Request, res: Response) => {
       where: { id: Number(id) },
       include: { plan: true },
     });
-    if (!subscription) return ResponseApi.error(res, "Abonnement introuvable", 404);
+    if (!subscription)
+      return ResponseApi.error(res, "Abonnement introuvable", 404);
     return ResponseApi.success(res, "Abonnement trouvé", 200, subscription);
   } catch (error) {
     console.error(error);
     return ResponseApi.error(res, "Erreur serveur", 500);
   }
-};  
+};
 
 // Annuler un abonnement
 export const cancelSubscription = async (req: Request, res: Response) => {

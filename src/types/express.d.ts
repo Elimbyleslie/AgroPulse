@@ -8,7 +8,6 @@ declare global {
       name?: string;
       status?: string;
       roles: string[];
-     
     }
   }
 }

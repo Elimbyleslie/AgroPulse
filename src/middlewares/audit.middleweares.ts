@@ -1,7 +1,6 @@
-
-import { Request, Response, NextFunction } from 'express';
-import { logAction } from '../controllers/audit.controller.js';
-import { AnyARecord } from 'dns';
+import { Request, Response, NextFunction } from "express";
+import { logAction } from "../controllers/audit.controller.js";
+import { AnyARecord } from "dns";
 
 export const auditMiddleware = (tableCible: string) => {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -24,7 +23,7 @@ export const auditMiddleware = (tableCible: string) => {
           action: action,
           anciennes_valeurs: getOldValues(req.method, data),
           nouvelles_valeurs: getNewValues(req.method, req.body),
-          ip_address: ipAddress
+          ip_address: ipAddress,
         }).catch(console.error);
       }
 
@@ -38,13 +37,13 @@ export const auditMiddleware = (tableCible: string) => {
 // Helper functions
 const getActionFromMethod = (method: string): string => {
   const actions: { [key: string]: string } = {
-    'GET': 'consultation',
-    'POST': 'creation',
-    'PUT': 'modification',
-    'PATCH': 'modification',
-    'DELETE': 'suppression'
+    GET: "consultation",
+    POST: "creation",
+    PUT: "modification",
+    PATCH: "modification",
+    DELETE: "suppression",
   };
-  return actions[method] || 'autre';
+  return actions[method] || "autre";
 };
 
 const getTargetId = (req: Request): number | undefined => {
@@ -55,20 +54,18 @@ const getTargetId = (req: Request): number | undefined => {
 };
 
 const getFermeIdFromRequest = (req: Request): number | undefined => {
-  
   return req.body.ferme_id || undefined;
 };
 
 const getOldValues = (method: string, data: any): any => {
-  if (method === 'PUT' || method === 'PATCH') {
-    
-    return null; 
+  if (method === "PUT" || method === "PATCH") {
+    return null;
   }
   return null;
 };
 
 const getNewValues = (method: string, body: any): any => {
-  if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
+  if (method === "POST" || method === "PUT" || method === "PATCH") {
     return body;
   }
   return null;

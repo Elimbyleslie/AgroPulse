@@ -16,8 +16,13 @@ router.post(
   authenticate,
   authorizePermission([Permission.CREATE_REPRODUCTION_WITH_BIRTH]),
   validator(createReproductionWithBirthSchema),
-  createReproductionWithBirth
+  createReproductionWithBirth,
 );
-router.get("/", authenticate, authorizePermission([Permission.READ_REPRODUCTION_WITH_BIRTH]), getAllReproductionWithBirth);
+router.get(
+  "/",
+  authenticate,
+  authorizePermission([Permission.READ_REPRODUCTION_WITH_BIRTH]),
+  getAllReproductionWithBirth,
+);
 
 export default router;

@@ -7,19 +7,26 @@ import { AnimalMovement } from "../typages/animalMovement.js";
 export const createAnimalMovement = async (
   req: Request<{}, {}, AnimalMovement>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const movement = await prisma.animalMovement.create({ data: req.body });
     return ResponseApi.success(res, "Mouvement enregistré", 201, movement);
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 };
 
 // GET ALL
 export const getAllAnimalMovements = async (
-  req: Request<{}, {}, {}, { animalId?: string; page?: string; limit?: string }>,
+  req: Request<
+    {},
+    {},
+    {},
+    { animalId?: string; page?: string; limit?: string }
+  >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { animalId } = req.query;
@@ -50,18 +57,21 @@ export const getAllAnimalMovements = async (
         totalPage: Math.ceil(totalItems / limit),
       },
     });
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 };
 
 // GET BY ID
 export const getAnimalMovementById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
-    if (!id || isNaN(Number(id))) return ResponseApi.error(res, "ID invalide", 400);
+    if (!id || isNaN(Number(id)))
+      return ResponseApi.error(res, "ID invalide", 400);
 
     const movement = await prisma.animalMovement.findUnique({
       where: { id: Number(id) },
@@ -71,14 +81,16 @@ export const getAnimalMovementById = async (
     if (!movement) return ResponseApi.error(res, "Mouvement non trouvé", 404);
 
     return ResponseApi.success(res, "Mouvement récupéré", 200, movement);
-  } catch (error) { next(error); }
+  } catch (error) {
+    next(error);
+  }
 };
 
 // UPDATE
 export const updateAnimalMovement = async (
   req: Request<{ id: string }, {}, Partial<AnimalMovement>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -88,7 +100,8 @@ export const updateAnimalMovement = async (
     });
     return ResponseApi.success(res, "Mouvement mis à jour", 200, updated);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Mouvement non trouvé", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Mouvement non trouvé", 404);
     next(error);
   }
 };
@@ -97,14 +110,17 @@ export const updateAnimalMovement = async (
 export const deleteAnimalMovement = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
-    const deleted = await prisma.animalMovement.delete({ where: { id: Number(id) } });
+    const deleted = await prisma.animalMovement.delete({
+      where: { id: Number(id) },
+    });
     return ResponseApi.success(res, "Mouvement supprimé", 200, deleted);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Mouvement non trouvé", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Mouvement non trouvé", 404);
     next(error);
   }
 };

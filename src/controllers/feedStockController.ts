@@ -6,7 +6,7 @@ import ResponseApi from "../helpers/response.js";
 export const createFeedStock = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const stock = await prisma.feedStock.create({
@@ -22,7 +22,7 @@ export const createFeedStock = async (
 export const getAllFeedStocks = async (
   req: Request<{}, {}, {}, { farmId?: string; page?: string; limit?: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { farmId } = req.query;
@@ -59,7 +59,7 @@ export const getAllFeedStocks = async (
 export const getFeedStockById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const stock = await prisma.feedStock.findUnique({
@@ -76,7 +76,7 @@ export const getFeedStockById = async (
 export const updateFeedStock = async (
   req: Request<{ id: string }, {}, any>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const updated = await prisma.feedStock.update({
@@ -95,7 +95,7 @@ export const updateFeedStock = async (
 export const deleteFeedStock = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const deleted = await prisma.feedStock.delete({

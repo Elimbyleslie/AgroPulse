@@ -9,7 +9,7 @@ import { AnimalHealthRecord } from "../typages/animalHealthRecords.js";
 export const createAnimalHealthRecord = async (
   req: Request<{}, {}, AnimalHealthRecord>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const record = await prisma.animalHealthRecord.create({
@@ -26,9 +26,14 @@ export const createAnimalHealthRecord = async (
 // GET ALL Health Records (pagination + filtre)
 // ======================================================
 export const getAllAnimalHealthRecords = async (
-  req: Request<{}, {}, {}, { animalId?: string; lotId?: string; page?: string; limit?: string }>,
+  req: Request<
+    {},
+    {},
+    {},
+    { animalId?: string; lotId?: string; page?: string; limit?: string }
+  >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { animalId, lotId } = req.query;
@@ -73,7 +78,7 @@ export const getAllAnimalHealthRecords = async (
 export const getAnimalHealthRecordById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -103,7 +108,7 @@ export const getAnimalHealthRecordById = async (
 export const updateAnimalHealthRecord = async (
   req: Request<{ id: string }, {}, Partial<AnimalHealthRecord>>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
@@ -128,7 +133,7 @@ export const updateAnimalHealthRecord = async (
 export const deleteAnimalHealthRecord = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
