@@ -69,7 +69,10 @@ export const getAllAnimalReproductions = async (
     if (maleId) where.maleId = Number(maleId);
 
     const reproductions = await prisma.animalReproduction.findMany({
-      where,
+      where:{
+        female: {farmId : req.user?.defaultFarmId},
+        male: {farmId : req.user?.defaultFarmId},
+      },
       skip,
       take: limit,
       orderBy: { id: "desc" },

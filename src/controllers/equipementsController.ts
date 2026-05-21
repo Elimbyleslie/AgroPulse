@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
+import { triggerAlertForEquipmentOutOfService } from "../services/alert.js";
 
 // CREATE
 export const createEquipment = async (
@@ -13,6 +14,7 @@ export const createEquipment = async (
       data: req.body,
       include: { farm: true },
     });
+    await triggerAlertForEquipmentOutOfService(equipment.id);
     return ResponseApi.success(res, "Équipement créé", 201, equipment);
   } catch (error) {
     next(error);

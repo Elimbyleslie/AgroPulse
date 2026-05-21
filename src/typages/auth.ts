@@ -13,6 +13,8 @@ export interface RegisterUser {
   otp?: string;
   userRole: string;
   status: string;
+  defaultFarmId?: number;
+  defaultOrganizationId?: number;
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -22,6 +24,8 @@ export interface AuthenticatedRequest extends Request {
     email: string;
     userRoles?: Role[];
     status?: string;
+    defaultFarmId?: number;
+    defaultOrganizationId?: number;
   };
 }
 export interface ResetPassword {

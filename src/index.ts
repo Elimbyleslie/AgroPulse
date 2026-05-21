@@ -18,6 +18,9 @@ import router from "./routers/index.js";
 import { errorHandler, notFound } from "./middlewares/errorHandle.js";
 import passport from "passport";
 import "./config/passport.js";
+import {startAlertCron} from "./cron/alerts.js";
+
+
 
 dotenv.config();
 
@@ -27,7 +30,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const uploadsPath = path.resolve(__dirname, "..", "..", "uploads");
-console.log("📂 Dossier uploads servi depuis :", uploadsPath);
 app.use("/uploads", express.static(uploadsPath));
 // =====================
 // Middlewares globaux
@@ -99,7 +101,7 @@ app.use("/api/subscriptions", router.subscription);
 // Animaux
 app.use("/api/animals", router.animal);
 app.use("/api/births", router.birth);
-app.use("/api/animal-reproductions", router.animalReproduction);
+app.use("/api/  ", router.animalReproduction);
 app.use("/api/reproductions", router.reproductionBirth);
 app.use("/api/animal-health", router.AnimalHealthRecord);
 app.use("/api/animal-treatments", router.AnimalTreatment);
@@ -110,9 +112,21 @@ app.use("/api/animal-weights", router.AnimalWeight);
 app.use("/api/animal-movements", router.AnimalMovement);
 app.use("/api/animal-feedings", router.animalFeeding);
 
+//reproduction
+app.use("/api/reproduction-cycles", router.reproductionCycle);
+app.use("/api/gestation-checkups", router.gestationCheckup);
+app.use("/api/reproduction-with-birth", router.reproductionBirth);
+
+// Tâches & performances
+app.use("/api/farmtasks", router.farmtask);
+
+// Généalogie & performance génétique
+app.use("/api/pedigrees", router.pedigree);
+app.use("/api/genetic-performances", router.geneticPerformance);
+app.use("/api/gestations", router.gestation);
+
 // Fermes & structures
 app.use("/api/farms", router.farm);
-app.use("/api/FarmTasks", router.farmtask);
 app.use("/api/barns", router.barn);
 app.use("/api/pens", router.pen);
 
@@ -139,6 +153,7 @@ app.use("/api/equipments", router.equipment);
 // Stock
 app.use("/api/Feedstocks", router.feedstock);
 app.use("/api/FeedUsages", router.feedUsage);
+app.use("/api/feedingPlan", router.feedingPlan);
 app.use("/api/inventories", router.inventory);
 app.use("/api/Suppliers", router.supplier);
 app.use("/api/FeedPurchases", router.feedPurchase);
@@ -166,3 +181,5 @@ app.listen(PORT, () => {
   console.log(`📡 API on http://localhost:${PORT}/api`);
   console.log("=======================================");
 });
+
+startAlertCron();

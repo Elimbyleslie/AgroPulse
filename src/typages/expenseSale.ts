@@ -10,8 +10,10 @@ export interface Expense {
 
 // typages/expenseCategory.ts
 export interface ExpenseCategory {
-  id?: number;
+
+  id: number;
   name: string;
+  farmId :number;
 }
 
 // typages/sale.ts
@@ -31,4 +33,6 @@ export interface SaleItem {
   animalId?: number;
   quantity: number;
   price: number;
+  unitPrice: number;
+  totalPrice: number;
 }

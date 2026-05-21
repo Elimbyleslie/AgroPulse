@@ -40,7 +40,9 @@ export const getAllAnimalMovements = async (
     const movements = await prisma.animalMovement.findMany({
       skip: offset,
       take: limit,
-      where,
+       where:{
+      animal: {farmId : req.user?.defaultFarmId},
+      },
       orderBy: { date: "desc" },
       include: { animal: true, fromPen: true, toPen: true },
     });

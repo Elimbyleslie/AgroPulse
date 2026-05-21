@@ -9,6 +9,7 @@
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist",
     "sourceMap": true,
+    "ignoreDeprecations": "6.0",
     "baseUrl": "./src",
     "paths": {
       "@/*": ["*"]

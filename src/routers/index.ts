@@ -44,7 +44,12 @@ import invoice from "./invoice.router.js";
 import feedPurchase from "./feedPurchase.js";
 import supplier from "./supplier.js";
 import subscription from "./subscription.router.js";
-
+import gestation from "./gestation.js";
+import geneticPerformance from "./geneticPerformance.js";
+import pedigree from "./pedigree.js";
+import reproductionCycle from "./reproductionCycle.js";
+import gestationCheckup from "./gestationCheckup.js";
+import feedingPlan from './feedingplanRouter.js';
 const router = {
   auth,
   audit,
@@ -92,5 +97,11 @@ const router = {
   feedPurchase,
   supplier,
   subscription,
+  gestation,
+  geneticPerformance,
+  pedigree,
+  reproductionCycle,
+  gestationCheckup,
+  feedingPlan
 };
 export default router;

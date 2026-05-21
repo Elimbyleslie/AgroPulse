@@ -40,7 +40,9 @@ export const getAllAnimalWeights = async (
     const weights = await prisma.animalWeight.findMany({
       skip: offset,
       take: limit,
-      where,
+       where:{
+      animal: {farmId : req.user?.defaultFarmId},
+      },
       orderBy: { date: "desc" },
       include: { animal: true, user: true },
     });

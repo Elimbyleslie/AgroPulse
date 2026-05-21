@@ -50,6 +50,25 @@ export const login = async (
         },
       },
     });
+  
+    // mettre a jour la date de la derniere connexion de l'utilisateur
+    const updatedUser = await prisma.user.update({
+      where: { email },
+      data: { lastConnexion: new Date() }, 
+    });
+
+    // mettre a jour le onboardingComplete a true si une il a deja une ferme ou une organisation et un animal dans sa ferme
+    if (!updatedUser.onboardingComplete) {
+      const hasFarms = user?.ownedOrganizations.some((org) => org.farms.length > 0) ?? false;
+      const hasAnimals = user?.ownedOrganizations.some((org) => org.farms.some((farm) => farm.animals.length > 0)) ?? false;
+
+      if (hasFarms && hasAnimals) {
+        await prisma.user.update({
+          where: { email },
+          data: { onboardingComplete: true },
+        });
+      }
+    }
 
     if (!user) {
       return res
@@ -187,6 +206,12 @@ export const refreshToken = async (req: Request, res: Response) => {
       { expiresIn: "1h" },
     );
 
+    //mettre a jour le token du user en Bd 
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { refreshToken: token },
+    });
+
     return res.status(200).json(
       Utilities.successReponse(200, "Nouveau token généré", {
         accessToken: newAccessToken,
@@ -263,11 +288,12 @@ export const register = async (
         password: hashedPassword,
         phone: data.phone,
         photo: profilePhoto,
-
-        // 🔐 Auth
         provider: "LOCAL",
         emailVerified: false,
         status: "active",
+        onboardingComplete: false,
+
+
       },
     });
 

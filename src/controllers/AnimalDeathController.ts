@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 import { AnimalDeath } from "../typages/animalDeath.js";
+import { triggerAlertForAnimalDeath  } from "../services/alert.js";
 
 // ======================================================
 // CREATE Animal Death
@@ -13,6 +14,8 @@ export const createAnimalDeath = async (
 ) => {
   try {
     const death = await prisma.animalDeath.create({ data: req.body });
+    await triggerAlertForAnimalDeath(death.id);
+    
     return ResponseApi.success(res, "Décès enregistré", 201, death);
   } catch (error) {
     next(error);
@@ -46,7 +49,9 @@ export const getAllAnimalDeaths = async (
     const deaths = await prisma.animalDeath.findMany({
       skip: offset,
       take: limit,
-      where,
+       where:{
+      animal: {farmId : req.user?.defaultFarmId},
+      },
       orderBy: { dateOfDeath: "desc" },
       include: { animal: true, lot: true, recorder: true  },
     });

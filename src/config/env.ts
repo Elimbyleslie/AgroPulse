@@ -13,7 +13,7 @@ const env = {
 
   dbHost: process.env.DATABASE_HOST,
   dbUser: process.env.DATABASE_USER,
-  dbPasword: process.env.DATABASE_PASSWORD,
+  dbPassword: process.env.DATABASE_PASSWORD,
   dbName: process.env.DATABASE_NAME,
 
   mailUser: process.env.MAIL_USER,

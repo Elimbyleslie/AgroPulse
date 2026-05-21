@@ -6,6 +6,7 @@ import {
   updateAnimal,
   deleteAnimal,
   assignAnimal,
+  getAnimalHistory,
   unassignAnimal,
 } from "../controllers/animalController.js";
 import {
@@ -62,18 +63,22 @@ router.delete(
 );
 // ASSIGN ANIMAL TO LOT => UPDATE_ANIMAL
 router.post(
-  "/:id/assign",
+  "/assign/:id",
   authenticate,
   authorizePermission([Permission.UPDATE_ANIMAL]),
   assignAnimal,
 );
 // UNASSIGN ANIMAL FROM LOT => UPDATE_ANIMAL
 router.post(
-  "/:id/unassign",
+  "/unassign/:id",
   authenticate,
   authorizePermission([Permission.UPDATE_ANIMAL]),
   unassignAnimal,
 );
+router.get('/:id/history', 
+  authenticate,
+  authorizePermission([Permission.READ_ANIMAL]),
+  getAnimalHistory);
 
 
 export default router;

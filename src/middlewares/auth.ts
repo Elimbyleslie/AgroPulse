@@ -58,6 +58,8 @@ export const authenticate: RequestHandler = async (
         email: true,
         name: true,
         status: true,
+        defaultOrganizationId: true,
+        defaultFarmId: true,
         roles: {
           select: {
             role: {
@@ -80,8 +82,11 @@ export const authenticate: RequestHandler = async (
       id: user.id,
       email: user.email,
       name: user.name ?? undefined,
+      defaultFarmId: user.defaultFarmId ?? undefined,
+      defaultOrganizationId: user.defaultOrganizationId ?? undefined,
       status: user.status,
       roles: user.roles.map((r) => r.role.name),
+
     };
 
     next();

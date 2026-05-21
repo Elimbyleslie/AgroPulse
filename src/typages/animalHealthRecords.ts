@@ -1,6 +1,7 @@
 export interface AnimalHealthRecord {
   id?: number;
   animalId?: number;
+  farmId?: number;
   lotId?: number;
   checkDate: Date;
   symptoms?: string;

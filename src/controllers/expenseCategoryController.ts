@@ -19,7 +19,12 @@ export const createExpenseCategory = async (
 
 // GET ALL avec pagination et filtre par name
 export const getAllExpenseCategories = async (
-  req: Request<{}, {}, {}, { search?: string; page?: string; limit?: string }>,
+  req: Request<
+    {},
+    {},
+    {},
+    { search?: string; page?: string; limit?: string; }
+  >,
   res: Response,
   next: NextFunction,
 ) => {
@@ -29,8 +34,19 @@ export const getAllExpenseCategories = async (
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
-    if (search) where.name = { contains: search, mode: "insensitive" };
+    const farmId = Number(req.query)
+
+    if (!farmId) {
+      return ResponseApi.error(
+        res,
+        "Le farmId est requis pour filtrer les données",
+        400,
+      );
+    }
+    const where: any = {
+      farmId: Number(farmId), 
+    };
+
 
     const categories = await prisma.expenseCategory.findMany({
       where,

@@ -167,38 +167,47 @@ export const removeRoleFromUser = async (userId: number, roleId: number) => {
   }
 };
 
+// services/organization.service.ts
+
 export const createOrgAndAssignRole = async (userId: number, orgData: any) => {
   return await prisma.$transaction(async (tx) => {
-    // 1. Créer l'organisation
+
     const org = await tx.organization.create({
       data: {
         ...orgData,
         ownerId: userId,
-        users: { connect: { id: userId } } // Liaison immédiate
-      }
+      },
     });
 
-    // 2. Trouver le rôle
-    const role = await tx.role.findUnique({ where: { name: "ORGANIZATION_OWNER" } });
+    const role = await tx.role.findUnique({
+      where: { name: "ORGANIZATION_OWNER" },
+    });
+
+    if (!role) {
     
-    if (role) {
-      // 3. Créer le lien UserRole
-      await tx.userRole.upsert({
-        where: { userId_roleId: { userId, roleId: role.id } }, // Nécessite un @unique dans ton schéma
-        update: {},
-        create: {
-          userId,
-          roleId: role.id,
-          assignedBy: "AUTO_ORG_CREATE"
-        }
-      });
+      console.warn(
+        "[createOrgAndAssignRole] Rôle ORGANIZATION_OWNER introuvable en DB — assignation ignorée"
+      );
+      return org;
     }
+
+    // 3. Assigner le rôle (upsert = idempotent, pas de doublon)
+    await tx.userRole.upsert({
+      where: {
+        userId_roleId: { userId, roleId: role.id },
+      },
+      update: {}, // Déjà assigné → on ne touche rien
+      create: {
+        userId,
+        roleId: role.id,
+        assignedBy: "AUTO_ORG_CREATE",
+      },
+    });
 
     return org;
   });
 };
-
-export const assignOrgOwnerRole = async (organizationId: number, userId: number) => {
+export const VerifyOrgOwnerRole = async (organizationId: number, userId: number) => {
   try {
     // 1️⃣ VÉRIFICATION : L'utilisateur est-il vraiment le propriétaire en BD ?
     const organization = await prisma.organization.findUnique({

@@ -6,6 +6,8 @@ import QRCode from "qrcode";
 import fs from "fs";
 import path from "path";
 import { verifyQr, signQr } from "../helpers/qrcodeSignature.js";
+import db from '../config/db.js';
+
 
 export const validateQr = async (req: Request, res: Response) => {
   const { animalId, signature } = req.body;
@@ -87,6 +89,32 @@ export const createAnimal = async (
     const animal = await prisma.animal.create({
       data,
     });
+
+    // 2. Vérification cumulative
+  const [hasOrg, hasFarm] = await Promise.all([
+    prisma.organization.findFirst({
+      where: {
+        farms: {
+          some: {
+            id: animal.farmId,
+          },
+        },
+      },
+    }),
+    prisma.farm.findUnique({
+      where: { id: animal.farmId },
+    }),
+  ]);
+
+  const userId = req.user?.id;
+
+  // 3. Si tout est là, on marque l'onboarding comme fini
+  if (hasOrg && hasFarm) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { onboardingComplete: true },
+    });
+  }
 
     // 3️⃣ Générer QR signé
     const signature = signQr(animal.id);
@@ -391,9 +419,17 @@ export const deleteAnimal = async (
 
 export const assignAnimal = async (req: Request, res: Response) => {
   try {
-    const animalId = Number(req.params.id);
+  const animalId = Number(req.params.id);
     const { lotId, herdId, penId } = req.body;
     const userId = req.user?.id;
+
+    // Validation de l'ID
+    if (isNaN(animalId)) {
+      return res.status(400).json({
+        success: false,
+        message: "ID d'animal invalide",
+      });
+    }
 
     const targets = [lotId, herdId, penId].filter(Boolean);
     if (targets.length !== 1) {
@@ -465,24 +501,44 @@ export const assignAnimal = async (req: Request, res: Response) => {
 export const unassignAnimal = async (req: Request, res: Response) => {
   try {
     const animalId = Number(req.params.id);
-    const userId = req.user?.id; // On récupère l'ID de celui qui fait l'action
+    const userId = req.user?.id;
 
+    // Validation de l'ID
     if (isNaN(animalId)) {
-      return res.status(400).json({ success: false, message: "ID d'animal invalide" });
+      return res.status(400).json({ 
+        success: false, 
+        message: "ID d'animal invalide" 
+      });
     }
 
-    // 1. Trouver l'animal pour connaître son emplacement actuel avant de le supprimer
+    // Validation de l'utilisateur authentifié
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        message: "Utilisateur non authentifié" 
+      });
+    }
+
     const animal = await prisma.animal.findUnique({
       where: { id: animalId },
     });
 
     if (!animal) {
-      return res.status(404).json({ success: false, message: "Animal introuvable" });
+      return res.status(404).json({ 
+        success: false, 
+        message: "Animal introuvable" 
+      });
     }
 
-    // 2. Transaction pour garantir que l'animal est libéré ET que le mouvement est loggé
+    // Vérifier si l'animal est déjà désassigné
+    if (!animal.lotId && !animal.herdId && !animal.penId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "L'animal n'est assigné à aucun emplacement" 
+      });
+    }
+
     const result = await prisma.$transaction(async (tx) => {
-      // Mise à jour de l'animal : on met tout à null
       const updated = await tx.animal.update({
         where: { id: animalId },
         data: {
@@ -492,7 +548,6 @@ export const unassignAnimal = async (req: Request, res: Response) => {
         },
       });
 
-      // Enregistrement du mouvement de "sortie"
       await tx.animalMovement.create({
         data: {
           animalId,
@@ -502,7 +557,7 @@ export const unassignAnimal = async (req: Request, res: Response) => {
           toLotId: null,
           toHerdId: null,
           toPenId: null,
-          movedById: userId ?? null,
+          movedById: userId,
           date: new Date(),
         },
       });
@@ -512,12 +567,64 @@ export const unassignAnimal = async (req: Request, res: Response) => {
 
     return res.status(200).json({
       success: true,
-      message: "L'animal a été désassigné et le mouvement historique a été enregistré",
+      message: "Animal désassigné avec succès",
       data: result,
     });
 
   } catch (error) {
     console.error("Erreur unassignAnimal:", error);
-    return res.status(500).json({ success: false, message: "Erreur technique lors de la désassignation" });
+    return res.status(500).json({ 
+      success: false, 
+      message: "Erreur lors de la désassignation" 
+    });
   }
+};
+
+
+
+export const getAnimalHistory = async (req:Request, res:Response) => {
+    const { id } = req.params;
+
+    if (!id) {
+        return res.status(400).json({ message: "ID de l'animal manquant" });
+    }
+
+    // La requête SQL qui rassemble tes tables spécifiques
+    const sql = `
+        SELECT date, 'VACCINATION' as type, vaccine_name as title, notes as description FROM animalvaccination WHERE animal_id = ?
+        UNION ALL
+        SELECT date, 'SANTÉ' as type, diagnosis as title, treatment as description FROM animalhealthrecord WHERE animal_id = ?
+        UNION ALL
+        SELECT date, 'TRAITEMENT' as type, medicine_name as title, dosage as description FROM animaltreatment WHERE animal_id = ?
+        UNION ALL
+        SELECT date, 'POIDS' as type, CONCAT(weight, ' kg') as title, 'Suivi de croissance' as description FROM animalweight WHERE animal_id = ?
+        UNION ALL
+        SELECT date, 'ALIMENTATION' as type, food_type as title, quantity as description FROM animalfeeding WHERE animal_id = ?
+        UNION ALL
+        SELECT date, 'REPRODUCTION' as type, event_type as title, result as description FROM animalreproduction WHERE animal_id = ?
+        UNION ALL
+        SELECT date, 'MOUVEMENT' as type, reason as title, destination as description FROM animalmovement WHERE animal_id = ?
+        UNION ALL
+        SELECT date, 'TRANSFERT' as type, transfer_type as title, recipient as description FROM animaltransfer WHERE animal_id = ?
+        UNION ALL
+        SELECT date, 'DÉCÈS' as type, cause as title, notes as description FROM animaldeath WHERE animal_id = ?
+        ORDER BY date DESC
+    `;
+
+    try {
+        // Comme il y a 9 SELECT dans l'UNION, on passe l'ID 9 fois
+        const params = Array(9).fill(id);
+        const [rows] = await db.execute(sql, params);
+
+        res.status(200).json({
+            success: true,
+            data: rows
+        });
+    } catch (error) {
+        console.error("Erreur SQL Historique:", error);
+        res.status(500).json({ 
+            success: false, 
+            message: "Erreur lors de la récupération de l'historique" 
+        });
+    }
 };

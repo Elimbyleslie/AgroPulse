@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 import { Birth } from "../typages/birth.js";
+import { generateNewbornReference } from "../helpers/referenceNewBorn.js";
 
 // ======================================================
 // CREATE Birth
@@ -49,6 +50,25 @@ export const createBirth = async (
         userId,
       },
     });
+
+    // 3️⃣ Créer les animaux "newborns"
+    if (numberBorn && numberBorn > 0) {
+      const femaleAnimal = await prisma.animal.findUnique({
+        where: { id: motherId },
+      });
+      const newbornsData = Array.from({ length: numberBorn }).map(
+        (_, index) => ({
+          name: generateNewbornReference(index),
+          farmId: birth.farmId,
+          breedId: femaleAnimal?.breedId || null,
+          speciesId: femaleAnimal?.speciesId || 0,
+          lotId: null,
+          birthId: birth.id,
+        }),
+      );
+
+      await prisma.animal.createMany({ data: newbornsData });
+    }
 
     return ResponseApi.success(res, "Naissance créée avec succès", 201, birth);
   } catch (error) {
