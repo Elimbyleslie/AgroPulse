@@ -159,146 +159,112 @@ export const getAllAnimals = async (
       sortOrder = "desc",
       page = "1",
       limit = "10",
-      skip = "0",
     } = req.query;
 
-    const pageNum = Number(page);
-    const limitNum = Number(limit);
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
     const offset = (pageNum - 1) * limitNum;
-    const skipNum = Number(skip);
-
-    const where: any = {};
 
     const userId = req.user?.id;
 
-    if (isNaN(farmId)) {
-      return res.status(400).json({
-        message:
-          "L'identifiant de la ferme (farmId) est requis et doit être un nombre.",
-      });
+    if (!farmId) {
+      return res.status(400).json({ message: "farmId est requis" });
     }
 
-    if (!farmId) {
-      return res.status(400).json({
-        message:
-          "L'identifiant de la ferme (farmId) est requis pour lister les animaux.",
-      });
-    }
-    // 🔍 Recherche globale
+    const where: any = { farmId: Number(farmId) };
+
+    // Recherche globale
     if (search) {
       where.OR = [
-        { qrcode: { contains: search as string } },
-        { photo: { contains: search as string } },
-        { species: { name: { contains: search as string } } },
-        { breed: { name: { contains: search as string } } },
+        { name: { contains: search as string, mode: "insensitive" } },
+        { qrcode: { contains: search as string, mode: "insensitive" } },
+        { species: { name: { contains: search as string, mode: "insensitive" } } },
+        { breed: { name: { contains: search as string, mode: "insensitive" } } },
       ];
     }
 
-    // 🐄 Filtres simples
+    // Filtres simples
     if (speciesId) where.speciesId = Number(speciesId);
     if (breedId) where.breedId = Number(breedId);
-    if (farmId) where.farmId = Number(farmId);
     if (lotId) where.lotId = Number(lotId);
     if (status) where.status = status;
     if (gender) where.gender = gender;
 
-    // 📅 Filtre par date de naissance
+    // Filtre date de naissance
     if (startDate || endDate) {
       where.birthDate = {};
       if (startDate) where.birthDate.gte = new Date(startDate as string);
       if (endDate) where.birthDate.lte = new Date(endDate as string);
     }
 
-    // ⚖️ Filtre par poids
+    // Filtre poids
     if (minWeight || maxWeight) {
       where.weight = {};
       if (minWeight) where.weight.gte = Number(minWeight);
       if (maxWeight) where.weight.lte = Number(maxWeight);
     }
 
-    // 🕑 Filtre par âge en années
+    // Filtre âge
     if (minAge || maxAge) {
-      where.birthDate = {};
+      where.birthDate = where.birthDate || {};
       const now = new Date();
-
       if (minAge) {
-        const maxBirthDate = new Date(now);
-        maxBirthDate.setFullYear(now.getFullYear() - Number(minAge));
-        where.birthDate.lte = maxBirthDate;
+        const maxBirth = new Date(now);
+        maxBirth.setFullYear(now.getFullYear() - Number(minAge));
+        where.birthDate.lte = maxBirth;
       }
-
       if (maxAge) {
-        const minBirthDate = new Date(now);
-        minBirthDate.setFullYear(now.getFullYear() - Number(maxAge));
-        where.birthDate.gte = minBirthDate;
+        const minBirth = new Date(now);
+        minBirth.setFullYear(now.getFullYear() - Number(maxAge));
+        where.birthDate.gte = minBirth;
       }
     }
 
-    // 🧭 Tri dynamique
-    const validSortFields = [
-      "id",
-      "createdAt",
-      "birthDate",
-      "weight",
-      "qrcode",
-    ];
+    // Tri
+    const orderBy = { [sortBy as string]: sortOrder === "asc" ? "asc" : "desc" };
 
-    const order = validSortFields.includes(sortBy as string)
-      ? { [sortBy as string]: sortOrder === "asc" ? "asc" : "desc" }
-      : { createdAt: "desc" };
-
-    // 🐄 Récupération des animaux + relations
-    const animals = await prisma.animal.findMany({
-      take: 10,
-      skip: 0, // Ajoutez cette ligne
-      include: {
-        farm: true,
-        lot: true,
-        species: true,
-        breed: true,
-        birth: {
-          include: {
-            mother: true,
-            father: true,
+    const [animals, totalItems] = await Promise.all([
+      prisma.animal.findMany({
+        where,
+        skip: offset,
+        take: limitNum,
+        orderBy,
+        include: {
+          farm: true,
+          lot: true,
+          species: true,
+          breed: true,
+          birth: {
+            include: { mother: true, father: true },
           },
+          // Garde uniquement les relations qui existent vraiment dans ton schéma
+          healthRecords: true,
+          treatments: true,
+          vaccinations: true,
+          deaths: true,
+          weights: true,
+          feedings: true,
+          // birthsAsMother: true,
+          // birthsAsFather: true,
+          // reproductionAsFemale: true,
+          // reproductionAsMale: true,
         },
-        birthsAsMother: true,
-        birthsAsFather: true,
-        healthRecords: true,
-        treatments: true,
-        vaccinations: true,
-        deaths: true,
-        reproductionAsFemale: true,
-        reproductionAsMale: true,
-        weights: true,
-        feedings: true,
-        movements: true,
-        saleItems: true,
-        animalTransfers: true,
-      },
-      where: {
-        farmId: Number(farmId),
-        farm: {
-          organization: {
-            ownerId: userId,
-          },
-        },
-      },
-    });
-
-    const totalItems = await prisma.animal.count({ where });
+      }),
+      prisma.animal.count({ where }),
+    ]);
 
     return ResponseApi.success(res, "Liste des animaux récupérée", 200, {
       animals,
       pagination: {
         currentPage: pageNum,
+        totalPages: Math.ceil(totalItems / limitNum),
+        totalItems,
         previousPage: pageNum > 1 ? pageNum - 1 : null,
         nextPage: pageNum * limitNum < totalItems ? pageNum + 1 : null,
-        totalItems,
-        totalPage: Math.ceil(totalItems / limitNum),
       },
     });
   } catch (error) {
+    console.error("GetAllAnimals Error:", error);
     next(error);
   }
 };

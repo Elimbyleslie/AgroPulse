@@ -144,7 +144,7 @@ export async function triggerAlertForAnimalDeath(animalDeathId: number): Promise
 // Appelé automatiquement par le cron quotidien
 // ─────────────────────────────────────────────────────────────────────────────
 export async function checkCriticalFeedStocks(): Promise<void> {
-  const criticalStocks = await prisma.feedStock.findMany({
+  const criticalStocks = await prisma.inventory.findMany({
     where: {
       quantity: { lte: FEED_STOCK_CRITICAL_THRESHOLD },
     },

@@ -93,6 +93,7 @@ app.use("/api/audit", router.audit);
 app.use("/api/APIKey", router.apiKeys);
 app.use("/api/users", router.user);
 app.use("/api/subscriptions", router.subscription);
+app.use("/api/clients", router.client);
 
 // =====================
 // Routes protégées par authentification et permission
@@ -137,7 +138,6 @@ app.use("/api/herds", router.herd);
 app.use("/api/lots", router.lot);
 
 // Finances
-app.use("/api/expense-categories", router.expenseCategory);
 app.use("/api/expenses", router.expense);
 app.use("/api/sales", router.sale);
 app.use("/api/sale-items", router.saleItems);
@@ -151,12 +151,13 @@ app.use("/api/equipment-maintenances", router.equipmentMaintenance);
 app.use("/api/equipments", router.equipment);
 
 // Stock
-app.use("/api/Feedstocks", router.feedstock);
 app.use("/api/FeedUsages", router.feedUsage);
 app.use("/api/feedingPlan", router.feedingPlan);
 app.use("/api/inventories", router.inventory);
+app.use("/api/feedStocks", router.feedStock);
 app.use("/api/Suppliers", router.supplier);
 app.use("/api/FeedPurchases", router.feedPurchase);
+app.use("/api/stock-movements", router.stockMovement);
 
 // Notifications
 app.use("/api/notifications", router.notifications);

@@ -2,18 +2,25 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
-import  { autoConvertUnit } from "../helpers/autoconverter.js";
-
+import { autoConvertUnit } from "../helpers/autoconverter.js";
 
 const feedingPlanInclude = {
-  animal:    true,
-  feedStock: true,
-  farm:      true,
-  user:      true,
+  farm: { select: { id: true, name: true } },
+  user: { select: { id: true, name: true } },
+  animal: { select: { id: true, name: true } },
+  lot: { select: { id: true, name: true } },
+  herd: { select: { id: true, name: true } },
+  pen: { select: { id: true, name: true } },
+  feedStock: {   // ← Correspond à ton modèle actuel
+    select: {
+      id: true,
+      name: true,
+      unit: true,
+      category: true,
+      quantity: true,
+    },
+  },
 } as const;
-
-// ── HELPER : conversion tonne → kg si quantité < 1 tonne ─────────────────────
-
 
 // ── CREATE ────────────────────────────────────────────────────────────────────
 export const createFeedingPlan = async (
@@ -23,86 +30,80 @@ export const createFeedingPlan = async (
 ) => {
   try {
     const {
-      animalId, feedStockId, quantity, unit,
-      frequency, startDate, endDate,
-      farmId, userId, notes,
-      lotId, herdId, penId,
+      animalId,
+      lotId,
+      herdId,
+      penId,
+      feedStockId,        // ← Correspond au modèle
+      quantity,
+      unit,
+      frequency,
+      startDate,
+      endDate,
+      farmId,
+      userId,
+      notes,
     } = req.body;
 
     const plan = await prisma.feedingPlan.create({
       data: {
-        animalId:    animalId    ? Number(animalId)    : null,
-        lotId:       lotId       ? Number(lotId)       : null,
-        herdId:      herdId      ? Number(herdId)      : null,
-        penId:       penId       ? Number(penId)       : null,
-        feedStockId: Number(feedStockId),
-        quantity:    Number(quantity),
+        animalId: animalId ? Number(animalId) : null,
+        lotId: lotId ? Number(lotId) : null,
+        herdId: herdId ? Number(herdId) : null,
+        penId: penId ? Number(penId) : null,
+        feedStockId: Number(feedStockId),   // ← Important
+        quantity: Number(quantity),
         unit,
         frequency,
-        startDate:   new Date(startDate),
-        endDate:     endDate ? new Date(endDate) : null,
-        farmId:      Number(farmId),
-        userId:      Number(userId),
-        notes:       notes ?? null,
+        startDate: new Date(startDate),
+        endDate: endDate ? new Date(endDate) : null,
+        farmId: Number(farmId),
+        userId: Number(userId),
+        notes: notes ?? null,
       },
       include: feedingPlanInclude,
     });
 
-    return ResponseApi.success(res, "Plan de ration créé", 201, plan);
-  } catch (error) {
+    return ResponseApi.success(res, "Plan de ration créé avec succès", 201, plan);
+  } catch (error: any) {
+    console.error("Create FeedingPlan Error:", error);
     next(error);
   }
 };
 
-// ── GET ALL (pagination + filtres) ────────────────────────────────────────────
+// ── GET ALL ───────────────────────────────────────────────────────────────────
 export const getAllFeedingPlans = async (
-  req: Request,
+  req: Request<{}, {}, {}, { farmId?: string; page?: string; limit?: string }>,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const { farmId, animalId, feedStockId, frequency, active } = req.query;
+    const { farmId, page, limit } = req.query;
 
-    if (!farmId) {
-      return ResponseApi.error(res, "Le farmId est requis pour filtrer les données", 400);
-    }
+    const currentPage = Number(page) || 1;
+    const take = Number(limit) || 10;
+    const skip = (currentPage - 1) * take;
 
-    const page  = Math.max(1, Number(req.query.page)  || 1);
-    const limit = Math.max(1, Number(req.query.limit) || 10);
-    const skip  = (page - 1) * limit;
+    const where: any = {};
+    if (farmId) where.farmId = Number(farmId);
 
-    const where: any = { farmId: Number(farmId) };
-
-    if (animalId)    where.animalId    = Number(animalId);
-    if (feedStockId) where.feedStockId = Number(feedStockId);
-    if (frequency)   where.frequency   = frequency;
-
-    if (active === "true") {
-      where.AND = [
-        { farmId: Number(farmId) },
-        { OR: [{ endDate: null }, { endDate: { gte: new Date() } }] },
-      ];
-    }
-
-    const [plans, totalItems] = await prisma.$transaction([
+    const [feedingPlans, totalItems] = await Promise.all([
       prisma.feedingPlan.findMany({
         where,
         skip,
-        take:     limit,
-        orderBy:  { createdAt: "desc" },
-        include:  feedingPlanInclude,
+        take,
+        orderBy: { createdAt: "desc" },
+        include: feedingPlanInclude,
       }),
       prisma.feedingPlan.count({ where }),
     ]);
 
-    return ResponseApi.success(res, "Liste des plans de ration récupérée", 200, {
-      plans,
+    return ResponseApi.success(res, "Plans de ration récupérés", 200, {
+      feedingPlans,
       pagination: {
-        currentPage:  page,
-        previousPage: page > 1                  ? page - 1 : null,
-        nextPage:     page * limit < totalItems  ? page + 1 : null,
+        currentPage,
+        totalPages: Math.ceil(totalItems / take),
         totalItems,
-        totalPages:   Math.ceil(totalItems / limit),
       },
     });
   } catch (error) {
@@ -118,31 +119,12 @@ export const getFeedingPlanById = async (
 ) => {
   try {
     const plan = await prisma.feedingPlan.findUnique({
-      where:   { id: Number(req.params.id) },
+      where: { id: Number(req.params.id) },
       include: feedingPlanInclude,
     });
 
     if (!plan) return ResponseApi.error(res, "Plan de ration non trouvé", 404);
-    return ResponseApi.success(res, "Plan de ration récupéré", 200, plan);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// ── GET BY ANIMAL ─────────────────────────────────────────────────────────────
-export const getFeedingPlansByAnimal = async (
-  req: Request<{ animalId: string }>,
-  res: Response,
-  next: NextFunction,
-) => {
-  try {
-    const plans = await prisma.feedingPlan.findMany({
-      where:   { animalId: Number(req.params.animalId) },
-      orderBy: { startDate: "desc" },
-      include: feedingPlanInclude,
-    });
-
-    return ResponseApi.success(res, "Plans de ration de l'animal récupérés", 200, plans);
+    return ResponseApi.success(res, "Plan récupéré", 200, plan);
   } catch (error) {
     next(error);
   }
@@ -156,21 +138,25 @@ export const updateFeedingPlan = async (
 ) => {
   try {
     const {
-      quantity, unit, frequency,
-      startDate, endDate, notes,
       feedStockId,
+      quantity,
+      unit,
+      frequency,
+      startDate,
+      endDate,
+      notes,
     } = req.body;
 
     const updated = await prisma.feedingPlan.update({
       where: { id: Number(req.params.id) },
       data: {
         ...(feedStockId !== undefined && { feedStockId: Number(feedStockId) }),
-        ...(quantity    !== undefined && { quantity:    Number(quantity)    }),
-        ...(unit        !== undefined && { unit                             }),
-        ...(frequency   !== undefined && { frequency                       }),
-        ...(startDate   !== undefined && { startDate:   new Date(startDate) }),
-        ...(endDate     !== undefined && { endDate:     endDate ? new Date(endDate) : null }),
-        ...(notes       !== undefined && { notes                           }),
+        ...(quantity !== undefined && { quantity: Number(quantity) }),
+        ...(unit !== undefined && { unit }),
+        ...(frequency !== undefined && { frequency }),
+        ...(startDate !== undefined && { startDate: new Date(startDate) }),
+        ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
+        ...(notes !== undefined && { notes }),
       },
       include: feedingPlanInclude,
     });
@@ -201,40 +187,8 @@ export const deleteFeedingPlan = async (
   }
 };
 
-// ── DISTRIBUTE ────────────────────────────────────────────────────────────────
-// ── HELPERS ───────────────────────────────────────────────────────────────────
-
-/** Convertit n'importe quelle quantité en grammes (unité commune de comparaison) */
-const toGrams = (quantity: number, unit: string): number => {
-  switch (unit.toLowerCase()) {
-    case "g":      return quantity;
-    case "kg":     return quantity * 1_000;
-    case "tonne":  return quantity * 1_000_000;
-    case "l":      return quantity * 1_000; // traité comme kg pour les liquides
-    default:       return quantity;         // sac, botte : pas de conversion possible
-  }
-};
-
-/** Convertit des grammes vers une unité cible */
-const fromGrams = (grams: number, unit: string): number => {
-  switch (unit.toLowerCase()) {
-    case "g":      return grams;
-    case "kg":     return grams / 1_000;
-    case "tonne":  return grams / 1_000_000;
-    case "l":      return grams / 1_000;
-    default:       return grams;
-  }
-};
-
-/** Unités convertibles entre elles */
-const isWeightUnit = (unit: string) =>
-  ["g", "kg", "tonne"].includes(unit.toLowerCase());
-
-/** Convertit tonne → kg si quantité < 1 tonne */
-
-
-// ── DISTRIBUTE ────────────────────────────────────────────────────────────────
-export const distributeFeeding = async (req: Request, res: Response) => {
+// ── DISTRIBUTE (mise à jour avec feedStock) ───────────────────────────────────
+export const distributeFeeding = async (req: Request, res: Response, next:NextFunction) => {
   const { id } = req.params;
 
   try {
@@ -242,121 +196,54 @@ export const distributeFeeding = async (req: Request, res: Response) => {
       const plan = await tx.feedingPlan.findUnique({
         where: { id: Number(id) },
         include: {
+          feedStock: true,           // ← Important
           animal: true,
-          lot:  { include: { _count: { select: { animals: true } } } },
+          lot: { include: { _count: { select: { animals: true } } } },
           herd: { include: { _count: { select: { animals: true } } } },
-          pen:  { include: { _count: { select: { animals: true } } } },
+          pen: { include: { _count: { select: { animals: true } } } },
         },
       });
 
-      if (!plan) throw new Error("Plan introuvable");
+      if (!plan || !plan.feedStock) throw new Error("Plan ou stock introuvable");
 
-      const stock = await tx.feedStock.findUnique({ where: { id: plan.feedStockId } });
-      if (!stock) throw new Error("Stock introuvable");
-
+      const stock = plan.feedStock;
       let animalCount = 1;
-      if (plan.lot)  animalCount = plan.lot._count.animals;
+      if (plan.lot) animalCount = plan.lot._count.animals;
       if (plan.herd) animalCount = plan.herd._count.animals;
-      if (plan.pen)  animalCount = plan.pen._count.animals;
+      if (plan.pen) animalCount = plan.pen._count.animals;
 
-      const totalPlanQuantity = plan.quantity * animalCount; // ex: 300 kg
+      const totalPlanQuantity = Number(plan.quantity) * animalCount;
 
-      // Vérification : les deux unités sont-elles convertibles entre elles ?
-      const canConvert = isWeightUnit(stock.unit) && isWeightUnit(plan.unit);
-
-      let stockQtyInPlanUnit: number;
-      let totalToDeductInStockUnit: number;
-
-      if (canConvert) {
-        // Normalise tout en grammes pour comparer sans erreur d'unité
-        const stockInGrams = toGrams(stock.quantity, stock.unit);
-        const deductInGrams = toGrams(totalPlanQuantity, plan.unit);
-
-        if (stockInGrams < deductInGrams) {
-          // Affiche les valeurs dans l'unité du stock pour le message d'erreur
-          stockQtyInPlanUnit = fromGrams(stockInGrams, stock.unit);
-          throw new Error(
-            `STOCK_INSUFFISANT: ${stock.quantity} ${stock.unit} disponible, ` +
-            `${fromGrams(deductInGrams, stock.unit)} ${stock.unit} requis`,
-          );
-        }
-
-        // Déduction : convertit la quantité du plan dans l'unité du stock
-        totalToDeductInStockUnit = fromGrams(deductInGrams, stock.unit);
-      } else {
-        // Unités incompatibles (ex: sac vs kg) : on compare brut et on bloque si différent
-        if (stock.unit !== plan.unit) {
-          throw new Error(
-            `UNITE_INCOMPATIBLE: impossible de convertir "${plan.unit}" en "${stock.unit}"`,
-          );
-        }
-        // Même unité non-convertible : comparaison directe
-        if (stock.quantity < totalPlanQuantity) {
-          throw new Error(
-            `STOCK_INSUFFISANT: ${stock.quantity} ${stock.unit} disponible, ` +
-            `${totalPlanQuantity} ${stock.unit} requis`,
-          );
-        }
-        totalToDeductInStockUnit = totalPlanQuantity;
+      // Logique de conversion (tu peux réutiliser autoConvertUnit)
+      if (Number(stock.quantity) < totalPlanQuantity) {
+        throw new Error(`STOCK_INSUFFISANT: ${stock.quantity} ${stock.unit} disponible`);
       }
 
-      const newQuantity = stock.quantity - totalToDeductInStockUnit;
+      const newQuantity = Number(stock.quantity) - totalPlanQuantity;
 
-      // Conversion automatique tonne → kg si on passe sous 1 tonne
-      const { quantity: convertedQuantity, unit: convertedUnit } = autoConvertUnit(
-        newQuantity,
-        stock.unit,
-      );
-      const unitChanged = convertedUnit !== stock.unit;
-
-      // Si l'unité change, on convertit aussi minQuantity
-      const convertedMinQuantity =
-        unitChanged && stock.minQuantity !== null && stock.minQuantity !== undefined
-          ? stock.minQuantity * 1_000
-          : stock.minQuantity;
+      const { quantity: convertedQuantity, unit: convertedUnit } = autoConvertUnit(newQuantity, stock.unit);
 
       const updatedStock = await tx.feedStock.update({
-        where: { id: plan.feedStockId },
-        data: {
-          quantity: convertedQuantity,
-          ...(unitChanged && {
-            unit:        convertedUnit,
-            minQuantity: convertedMinQuantity,
-          }),
-        },
+        where: { id: stock.id },
+        data: { quantity: convertedQuantity, unit: convertedUnit },
       });
 
       const updatedPlan = await tx.feedingPlan.update({
         where: { id: plan.id },
-        data:  { lastDistributedAt: new Date() },
+        data: { lastDistributedAt: new Date() },
       });
 
-      return {
-        updatedStock,
-        updatedPlan,
-        conversion: unitChanged
-          ? {
-              from: { quantity: newQuantity,       unit: stock.unit,    minQuantity: stock.minQuantity    },
-              to:   { quantity: convertedQuantity, unit: convertedUnit, minQuantity: convertedMinQuantity },
-            }
-          : null,
-      };
+      return { updatedPlan, updatedStock };
     });
 
-    return ResponseApi.success(res, "Distribution groupée réussie", 200, result);
+    return ResponseApi.success(res, "Distribution effectuée avec succès", 200, result);
   } catch (error: any) {
-    if (error.message?.startsWith("STOCK_INSUFFISANT")) {
-      return ResponseApi.error(res, error.message.replace("STOCK_INSUFFISANT: ", ""), 403);
+    if (error.message?.includes("STOCK_INSUFFISANT")) {
+      return ResponseApi.error(res, error.message, 403);
     }
-    if (error.message?.startsWith("UNITE_INCOMPATIBLE")) {
-      return ResponseApi.error(res, error.message.replace("UNITE_INCOMPATIBLE: ", ""), 422);
+    if (error.message === "Plan ou stock introuvable") {
+      return ResponseApi.error(res, error.message, 404);
     }
-    if (error.message === "Plan introuvable") {
-      return ResponseApi.error(res, "Plan introuvable", 404);
-    }
-    if (error.message === "Stock introuvable") {
-      return ResponseApi.error(res, "Stock introuvable", 404);
-    }
-    return ResponseApi.error(res, "Erreur interne du serveur", 500);
+    next(error);
   }
 };

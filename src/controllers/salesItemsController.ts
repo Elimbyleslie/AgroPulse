@@ -10,8 +10,18 @@ export const createSaleItem = async (
   next: NextFunction,
 ) => {
   try {
+    const { id, saleId, lotId, animalId, productionId, ...saleItemData } = req.body;
+    // Build data object with correct types for Prisma create
+    const data: any = {
+      ...saleItemData,
+    };
+    if (saleId !== undefined && saleId !== null) data.saleId = Number(saleId);
+    if (lotId !== undefined && lotId !== null) data.lotId = Number(lotId);
+    if (animalId !== undefined && animalId !== null) data.animalId = Number(animalId);
+    if (productionId !== undefined && productionId !== null) data.productionId = Number(productionId);
+
     const item = await prisma.saleItem.create({
-      data: req.body,
+      data,
       include: { sale: true, lot: true, animal: true, production: true },
     });
     return ResponseApi.success(res, "Item de vente créé", 201, item);

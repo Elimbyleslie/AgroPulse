@@ -1,6 +1,5 @@
-// validators/feedStock.validator.ts
 import * as yup from "yup";
-
+import { FeedCategory,  } from "../typages/feedStock.js";
 // ── Schéma de base ────────────────────────────────────────────────────────────
 const feedStockBaseSchema = yup.object({
   name: yup
@@ -44,15 +43,31 @@ const feedStockBaseSchema = yup.object({
     .nullable()
     .optional()
     .typeError("minQuantity doit être un nombre"),
-
+  unitPrice: yup
+    .number()
+    .min(0, "Le prix unitaire ne peut pas être négatif")
+    .nullable()
+    .optional()
+    .typeError("unitPrice doit être un nombre"),
+    totalValue: yup
+    .number()
+    .min(0, "La valeur totale ne peut pas être négative")
+    .nullable()
+    .optional()
+    .typeError("totalValue doit être un nombre"),
+    //validation avec  enum FeedCategory
   category: yup
     .string()
-    .oneOf(
-      ["concentré", "fourrage", "minéral", "complément", "autre"],
-      "Catégorie invalide",
-    )
+    .oneOf(Object.values(FeedCategory) as string[], "Catégorie invalide")
     .nullable()
     .optional(),
+  expiryDate: yup
+    .date()
+    .nullable()
+    .optional()
+    .typeError("expiryDate doit être une date"),
+
+    
 });
 
 // ── CREATE ────────────────────────────────────────────────────────────────────
@@ -67,8 +82,11 @@ export const updateFeedStockSchema = feedStockBaseSchema
     unit:        yup.string().oneOf(["kg", "g", "L", "ml", "sac", "tonne", "piece"]).optional(),
     notes:       yup.string().max(500).trim().nullable().optional(),
     minQuantity: yup.number().min(0).nullable().optional().typeError("minQuantity doit être un nombre"),
-    category:    yup.string().oneOf(["concentré", "fourrage", "minéral", "complément", "autre"]).nullable().optional(),
-  })
+    unitPrice:   yup.number().min(0).nullable().optional().typeError("unitPrice doit être un nombre"),
+    totalValue:  yup.number().min(0).nullable().optional().typeError("totalValue doit être un nombre"),
+    category:    yup.string().oneOf(Object.values(FeedCategory) as string[]).nullable().optional(),
+    expiryDate:  yup.date().nullable().optional().typeError("expiryDate doit être une date"),
+  });   
  
 
 // ── QUERY PARAMS ──────────────────────────────────────────────────────────────

@@ -4,7 +4,6 @@ import {
   createFeedingPlan,
   getAllFeedingPlans,
   getFeedingPlanById,
-  getFeedingPlansByAnimal,
   updateFeedingPlan,
   deleteFeedingPlan,
   distributeFeeding
@@ -40,12 +39,7 @@ router.get(
   authorizePermission([Permission.READ_FEEDING_PLAN]),
   getFeedingPlanById,
 );
-router.get(
-"/animal/:animalId",
-  authenticate,
-  authorizePermission([Permission.READ_FEEDING_PLAN]),
-  getFeedingPlansByAnimal,
-);
+
 
 router.put(
   "/:id",

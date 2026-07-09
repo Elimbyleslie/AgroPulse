@@ -27,10 +27,8 @@ import production from "./production.js";
 import expense from "./expense.js";
 import sale from "./sale.js";
 import saleItems from "./saleItems.js";
-import expenseCategory from "./expenseCategory.js";
 import notifications from "./notification.js";
 import apiKeys from "./apikey.js";
-import feedstock from "./feedStock.js";
 import feedUsage from "./feedUsage.js";
 import report from "./report.js";
 import FinancialReport from "./financialReport.js";
@@ -50,6 +48,9 @@ import pedigree from "./pedigree.js";
 import reproductionCycle from "./reproductionCycle.js";
 import gestationCheckup from "./gestationCheckup.js";
 import feedingPlan from './feedingplanRouter.js';
+import client from "./client.js";
+import stockMovement from "./stockMovement.js";
+import feedStock from "./feedStock.js";
 const router = {
   auth,
   audit,
@@ -80,10 +81,8 @@ const router = {
   expense,
   sale,
   saleItems,
-  expenseCategory,
   notifications,
   apiKeys,
-  feedstock,
   feedUsage,
   report,
   FinancialReport,
@@ -102,6 +101,9 @@ const router = {
   pedigree,
   reproductionCycle,
   gestationCheckup,
-  feedingPlan
+  feedingPlan,
+  client,
+  stockMovement,
+  feedStock,
 };
 export default router;

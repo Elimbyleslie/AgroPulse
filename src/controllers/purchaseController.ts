@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
-import { Purchase } from "../typages/purchase.js";
+import { Purchase, PurchaseStatus } from "../typages/purchase.js";
 
 // ======================================================
 // CREATE Purchase
@@ -12,7 +12,7 @@ export const createPurchase = async (
   next: NextFunction,
 ) => {
   try {
-    const { name, farmId, supplierId, totalAmount, purchaseDate, description } =
+    const { farmId, supplierId, totalAmount, purchaseDate, notes,status, taxAmount, createdById } =
       req.body;
 
     if (!farmId) {
@@ -25,12 +25,14 @@ export const createPurchase = async (
 
     const purchase = await prisma.purchase.create({
       data: {
-        name,
         farmId,
         supplierId,
         totalAmount,
-        description,
+        notes,
         purchaseDate,
+        taxAmount,
+        createdById: req.user?.id,
+        status: PurchaseStatus.PENDING,
       },
     });
 
@@ -135,7 +137,7 @@ export const getPurchaseById = async (
 // UPDATE Purchase
 // ======================================================
 export const updatePurchase = async (
-  req: Request<{ id: string }, {}, Partial<Purchase>>,
+  req: Request,
   res: Response,
   next: NextFunction,
 ) => {
@@ -146,9 +148,24 @@ export const updatePurchase = async (
       return ResponseApi.error(res, "ID invalide", 400);
     }
 
+    const { farmId, supplierId, totalAmount, purchaseDate, notes, taxAmount, status } =
+      req.body;
+
+    const updateData: any = {};
+    if (farmId) updateData.farmId = Number(farmId);
+    if (supplierId) updateData.supplierId = Number(supplierId);
+    if (totalAmount) updateData.totalAmount = Number(totalAmount);
+    if (purchaseDate) updateData.purchaseDate = purchaseDate;
+    if (notes) updateData.notes = notes;
+    if (taxAmount) updateData.taxAmount = Number(taxAmount);
+    if (status) updateData.status = status;
+
     const updated = await prisma.purchase.update({
       where: { id: Number(id) },
-      data: req.body,
+      data: {
+        ...updateData,
+        createdById: req.user?.id,
+      },
     });
 
     return ResponseApi.success(res, "Achat mis à jour", 200, updated);

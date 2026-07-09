@@ -7,8 +7,8 @@ import {
 } from "../controllers/equipementsController.js";
 import { validator } from "../middlewares/validator.middleware.js";
 import {
-  createEquipementSchema,
-  updateEquipementSchema,
+  createEquipmentSchema,
+  updateEquipmentSchema,
 } from "../validations/equipment.js";
 import { Router } from "express";
 import { authenticate, authorizePermission } from "../middlewares/auth.js";
@@ -20,7 +20,7 @@ router.post(
   "/",
   authenticate,
   authorizePermission([Permission.CREATE_EQUIPMENT]),
-  validator(createEquipementSchema),
+  validator(createEquipmentSchema),
   createEquipment,
 );
 router.get(
@@ -39,7 +39,7 @@ router.put(
   "/:id",
   authenticate,
   authorizePermission([Permission.UPDATE_EQUIPMENT]),
-  validator(updateEquipementSchema),
+  validator(updateEquipmentSchema),
   updateEquipment,
 );
 router.delete(

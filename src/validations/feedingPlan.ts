@@ -4,7 +4,7 @@ export const feedingPlanSchema = Yup.object().shape({
   // Identifiants relationnels
   farmId: Yup.number().required("L'ID de la ferme est requis"),
   userId: Yup.number().required("L'ID de l'utilisateur est requis"),
-  feedStockId: Yup.number().required("L'aliment est requis"),
+  inventoryId: Yup.number().required("L'aliment est requis"),
 
   // Cibles (Validation : au moins un des quatre doit être présent)
   animalId: Yup.number().nullable(),

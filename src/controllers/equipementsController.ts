@@ -46,7 +46,7 @@ export const getAllEquipments = async (
       skip,
       take: limit,
       orderBy: { id: "desc" },
-      include: { farm: true },
+      include: { equipmentMaintenances: true },
     });
     const totalItems = await prisma.equipment.count({ where });
 

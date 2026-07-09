@@ -37,8 +37,8 @@ export const createProduction = async (
         herdId: herdId ? Number(herdId) : null,
         penId: penId ? Number(penId) : null,
         date: date ? new Date(date) : new Date(),
-        Category,
-        Type,
+        category: Category,
+        type: Type,
         quantity: Number(quantity),
         unit,
         qualityGrade: qualityGrade || null,
@@ -333,7 +333,7 @@ export const getProductionStats = async (
 
     if (groupBy === 'month') {
       stats = await prisma.production.groupBy({
-        by: ['Type', 'unit'],
+        by: ['type', 'category', 'unit'],
         where,
         _sum: { quantity: true },
         _avg: { quantity: true },
@@ -343,14 +343,14 @@ export const getProductionStats = async (
 
     } else {
       stats = await prisma.production.groupBy({
-        by: ['Type', 'unit', 'Category'],
+        by: ['type', 'unit', 'category'],
         where,
         _sum: { quantity: true },
         _avg: { quantity: true },
         _count: { id: true },
         orderBy: [
           { _sum: { quantity: 'desc' } },
-          { Type: 'asc' },
+          { type: 'asc' },
         ],
       });
     }

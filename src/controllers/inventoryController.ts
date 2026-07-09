@@ -1,58 +1,131 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
-import { Inventory } from "../typages/inventory.js";
+import { Inventory, InventoryCategory } from "../typages/inventory.js"; // Adaptez le chemin
 
-// CREATE
+// CREATE - Ajout d'un nouvel article en stock
 export const createInventory = async (
   req: Request<{}, {}, Inventory>,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     const inventory = await prisma.inventory.create({
       data: req.body,
-      include: { farm: true },
+      include: {
+        farm: { select: { id: true, name: true } },
+        supplier: { select: { id: true, name: true } },
+      },
     });
-    return ResponseApi.success(res, "Inventory créé", 201, inventory);
+
+    return ResponseApi.success(res, "Article ajouté au stock avec succès", 201, inventory);
   } catch (error) {
     next(error);
   }
 };
 
-// GET ALL avec pagination
-export const getAllInventories = async (
-  req: Request<{}, {}, {}, { farmId?: string; page?: string; limit?: string }>,
+// GET ALL - Avec pagination et filtres avancés
+export const getAllInventory = async (
+  req: Request<
+    {},
+    {},
+    {},
+    {
+      farmId?: string;
+      category?: InventoryCategory;
+      status?: string;
+      supplierId?: string;
+      location?: string;
+      lowStock?: string; // Pour afficher seulement les stocks bas
+      search?: string;
+      page?: string;
+      limit?: string;
+    }
+  >,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
-    const { farmId } = req.query;
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const {
+      farmId,
+      category,
+      status,
+      supplierId,
+      location,
+      lowStock,
+      search,
+      page,
+      limit,
+    } = req.query;
+
+    const currentPage = Number(page) || 1;
+    const take = Number(limit) || 20;
+    const skip = (currentPage - 1) * take;
 
     const where: any = {};
+
     if (farmId) where.farmId = Number(farmId);
+    if (category) where.category = category;
+    if (status) where.status = status;
+    if (supplierId) where.supplierId = Number(supplierId);
+    if (location) where.location = location;
 
-    const inventories = await prisma.inventory.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { id: "desc" },
-      include: { farm: true },
-    });
+    const lowStockFilter = lowStock === "true";
+    if (lowStockFilter) {
+      where.minQuantity = { not: null };
+    }
 
-    const totalItems = await prisma.inventory.count({ where });
+    // Recherche par nom ou SKU
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { sku: { contains: search, mode: "insensitive" } },
+      ];
+    }
 
-    return ResponseApi.success(res, "Liste des inventaires récupérée", 200, {
-      inventories,
+    let items: any[];
+    let totalItems: number;
+
+    if (lowStockFilter) {
+      const allItems = await prisma.inventory.findMany({
+        where,
+        orderBy: { updatedAt: "desc" },
+        include: {
+          farm: { select: { id: true, name: true } },
+          supplier: { select: { id: true, name: true } },
+        },
+      });
+
+      const lowStockItems = allItems.filter(
+        (item) => item.minQuantity !== null && item.quantity <= item.minQuantity
+      );
+
+      totalItems = lowStockItems.length;
+      items = lowStockItems.slice(skip, skip + take);
+    } else {
+      [items, totalItems] = await Promise.all([
+        prisma.inventory.findMany({
+          where,
+          skip,
+          take,
+          orderBy: { updatedAt: "desc" },
+          include: {
+            farm: { select: { id: true, name: true } },
+            supplier: { select: { id: true, name: true } },
+          },
+        }),
+        prisma.inventory.count({ where }),
+      ]);
+    }
+
+    return ResponseApi.success(res, "Liste du stock récupérée", 200, {
+      items,
       pagination: {
-        currentPage: page,
-        previousPage: page > 1 ? page - 1 : null,
-        nextPage: page * limit < totalItems ? page + 1 : null,
+        currentPage,
+        previousPage: currentPage > 1 ? currentPage - 1 : null,
+        nextPage: currentPage * take < totalItems ? currentPage + 1 : null,
         totalItems,
-        totalPage: Math.ceil(totalItems / limit),
+        totalPages: Math.ceil(totalItems / take),
       },
     });
   } catch (error) {
@@ -64,15 +137,26 @@ export const getAllInventories = async (
 export const getInventoryById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
-    const inventory = await prisma.inventory.findUnique({
+    const item = await prisma.inventory.findUnique({
       where: { id: Number(req.params.id) },
-      include: { farm: true },
+      include: {
+        farm: true,
+        supplier: true,
+        movements: {
+          orderBy: { date: "desc" },
+          take: 10, // Derniers 10 mouvements
+        },
+      },
     });
-    if (!inventory) return ResponseApi.error(res, "Inventory non trouvé", 404);
-    return ResponseApi.success(res, "Inventory récupéré", 200, inventory);
+
+    if (!item) {
+      return ResponseApi.error(res, "Article non trouvé", 404);
+    }
+
+    return ResponseApi.success(res, "Article récupéré", 200, item);
   } catch (error) {
     next(error);
   }
@@ -80,20 +164,25 @@ export const getInventoryById = async (
 
 // UPDATE
 export const updateInventory = async (
-  req: Request<{ id: string }, {}, Inventory>,
+  req: Request<{ id: string }, {}, Partial<Inventory>>,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     const updated = await prisma.inventory.update({
       where: { id: Number(req.params.id) },
       data: req.body,
-      include: { farm: true },
+      include: {
+        farm: true,
+        supplier: true,
+      },
     });
-    return ResponseApi.success(res, "Inventory mis à jour", 200, updated);
+
+    return ResponseApi.success(res, "Stock mis à jour avec succès", 200, updated);
   } catch (error: any) {
-    if (error.code === "P2025")
-      return ResponseApi.error(res, "Inventory non trouvé", 404);
+    if (error.code === "P2025") {
+      return ResponseApi.error(res, "Article non trouvé", 404);
+    }
     next(error);
   }
 };
@@ -102,16 +191,18 @@ export const updateInventory = async (
 export const deleteInventory = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     const deleted = await prisma.inventory.delete({
       where: { id: Number(req.params.id) },
     });
-    return ResponseApi.success(res, "Inventory supprimé", 200, deleted);
+
+    return ResponseApi.success(res, "Article supprimé du stock", 200, deleted);
   } catch (error: any) {
-    if (error.code === "P2025")
-      return ResponseApi.error(res, "Inventory non trouvé", 404);
+    if (error.code === "P2025") {
+      return ResponseApi.error(res, "Article non trouvé", 404);
+    }
     next(error);
   }
 };

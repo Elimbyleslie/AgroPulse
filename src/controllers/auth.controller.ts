@@ -25,7 +25,7 @@ export const login = async (
         .json(Utilities.errorResponse(400, "Email et mot de passe requis."));
     }
 
-    // 1️⃣ Récupérer l'utilisateur avec rôles et permissions
+    // 1️⃣ Récupérer l'utilisateur
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
@@ -50,25 +50,6 @@ export const login = async (
         },
       },
     });
-  
-    // mettre a jour la date de la derniere connexion de l'utilisateur
-    const updatedUser = await prisma.user.update({
-      where: { email },
-      data: { lastConnexion: new Date() }, 
-    });
-
-    // mettre a jour le onboardingComplete a true si une il a deja une ferme ou une organisation et un animal dans sa ferme
-    if (!updatedUser.onboardingComplete) {
-      const hasFarms = user?.ownedOrganizations.some((org) => org.farms.length > 0) ?? false;
-      const hasAnimals = user?.ownedOrganizations.some((org) => org.farms.some((farm) => farm.animals.length > 0)) ?? false;
-
-      if (hasFarms && hasAnimals) {
-        await prisma.user.update({
-          where: { email },
-          data: { onboardingComplete: true },
-        });
-      }
-    }
 
     if (!user) {
       return res
@@ -76,9 +57,30 @@ export const login = async (
         .json(
           Utilities.errorResponse(
             401,
-            " cet utilisateur n'existe pas. veuillez creer un compte ",
-          ),
+            "Email ou mot de passe incorrect."
+          )
         );
+    }
+
+    // 2️⃣ Mise à jour de la dernière connexion + onboarding
+    const updatedUser = await prisma.user.update({
+      where: { id: user.id },           // ← Utilise l'ID, pas l'email
+      data: { lastConnexion: new Date() },
+    });
+
+    // Mise à jour du onboarding si nécessaire
+    if (!updatedUser.onboardingComplete) {
+      const hasFarms = user.ownedOrganizations.some((org) => org.farms.length > 0);
+      const hasAnimals = user.ownedOrganizations.some((org) =>
+        org.farms.some((farm) => farm.animals.length > 0)
+      );
+
+      if (hasFarms && hasAnimals) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { onboardingComplete: true },
+        });
+      }
     }
 
     // 🔐 Bloquer login local si compte Google
@@ -88,8 +90,8 @@ export const login = async (
         .json(
           Utilities.errorResponse(
             400,
-            "Ce compte utilise la connexion Google. Veuillez vous connecter avec Google.",
-          ),
+            "Ce compte utilise la connexion Google. Veuillez vous connecter avec Google."
+          )
         );
     }
 
@@ -106,13 +108,12 @@ export const login = async (
         .json(Utilities.errorResponse(403, "Compte désactivé."));
     }
 
-    // 📧 Email non vérifié → OTP requis
     if (!user.emailVerified) {
       return res.status(403).json(
         Utilities.errorResponse(403, "Email non vérifié.", {
           emailVerified: false,
           email: user.email,
-        }),
+        })
       );
     }
 
@@ -120,20 +121,19 @@ export const login = async (
       throw new Error("Secrets JWT non configurés");
     }
 
-    // 2️⃣ Création des tokens JWT
+    // 3️⃣ Création des tokens
     const accessToken = jwt.sign(
       { id_user: user.id, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" },
+      { expiresIn: "1h" }
     );
 
     const refreshToken = jwt.sign(
       { id_user: user.id },
       process.env.REFRESH_JWT_SECRET,
-      { expiresIn: "7d" },
+      { expiresIn: "7d" }
     );
 
-    // 3️⃣ Cookie refresh token
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: true,
@@ -142,7 +142,7 @@ export const login = async (
       path: "/",
     });
 
-    // 4️⃣ Mapper rôles et permissions
+    // Mapper rôles et permissions
     const userRoles = user.roles
       .map((ur: any) => {
         if (!ur.role) return null;
@@ -155,7 +155,7 @@ export const login = async (
       })
       .filter(Boolean);
 
-    // 5️⃣ Réponse finale
+    // 4️⃣ Réponse finale
     return res.status(200).json(
       Utilities.successReponse(200, "Connexion réussie", {
         token: {
@@ -169,11 +169,28 @@ export const login = async (
           email: user.email,
           phone: user.phone,
           roles: userRoles,
-          password: user.password,
+        
         },
-      }),
+      })
     );
-  } catch (error) {
+  } catch (error: any) {
+    console.error("Login Error:", error);
+
+    // Gestion spécifique Prisma P2025
+    if (error.code === "P2025") {
+      return res.status(404).json(
+        Utilities.errorResponse(404, "Utilisateur introuvable ou impossible à mettre à jour.")
+      );
+    }
+
+    // Autres erreurs Prisma
+    if (error.code && error.code.startsWith("P")) {
+      return res.status(500).json(
+        Utilities.errorResponse(500, "Erreur de base de données.")
+      );
+    }
+
+    // Erreur inconnue → laisser le middleware global gérer
     next(error);
   }
 };
