@@ -6,24 +6,37 @@ import { Supplier } from "../typages/feed.js";
 // ======================================================
 // CREATE SUPPLIER
 // ======================================================
-export const createFeedSupplier = async (
-  req: Request<{}, {}, Supplier>,
-  res: Response,
-  next: NextFunction,
-) => {
+// Exemple corrigé
+export const createSupplier = async (req: Request, res: Response) => {
   try {
+    const { name, category, email, phone, farmId } = req.body;
+
+    console.log("Données reçues :", { name, category, farmId });
+
+    if (!name || !category || !farmId) {
+      return res.status(400).json({ 
+        error: "Nom, catégorie et farmId sont obligatoires",
+        received: { name, category, farmId }
+      });
+    }
+
     const supplier = await prisma.supplier.create({
-      data: req.body,
+      data: {
+        name,
+        category,
+        email: email || null,
+        phone: phone || null,
+        farmId: Number(farmId)   // Force la conversion
+      }
     });
 
-    return ResponseApi.success(
-      res,
-      "Fournisseur créé avec succès",
-      201,
-      supplier,
-    );
-  } catch (error) {
-    next(error);
+    res.status(201).json(supplier);
+  } catch (error: any) {
+    console.error("Prisma Error :", error);
+    res.status(500).json({ 
+      error: error.message,
+      details: "Vérifiez le modèle Prisma (farmId)"
+    });
   }
 };
 

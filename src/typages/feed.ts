@@ -1,4 +1,3 @@
-import { SupplierCategory } from "../../generated/prisma/enums.js";
 
 export interface Supplier {
   id?: number;
@@ -6,6 +5,7 @@ export interface Supplier {
   name: string;
   email?: string | null;
   phone?: string | null;
+  farmId?: number | null;
 }
 
 export interface FeedPurchase {
@@ -16,4 +16,12 @@ export interface FeedPurchase {
   quantity: number;
   unitPrice?: number | null;
   totalAmount: number;
+}
+
+export enum SupplierCategory {
+  FEED = "FEED",
+  MEDICAL = "MEDICAL",
+  EQUIPMENT = "EQUIPMENT",
+  SERVICE = "SERVICE",
+  OTHER = "OTHER",
 }

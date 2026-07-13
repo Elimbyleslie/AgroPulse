@@ -51,6 +51,7 @@ import feedingPlan from './feedingplanRouter.js';
 import client from "./client.js";
 import stockMovement from "./stockMovement.js";
 import feedStock from "./feedStock.js";
+import settings from "./settings.js";
 const router = {
   auth,
   audit,
@@ -105,5 +106,6 @@ const router = {
   client,
   stockMovement,
   feedStock,
+  settings,
 };
 export default router;

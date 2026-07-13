@@ -94,6 +94,7 @@ app.use("/api/APIKey", router.apiKeys);
 app.use("/api/users", router.user);
 app.use("/api/subscriptions", router.subscription);
 app.use("/api/clients", router.client);
+app.use("/api/settings", router.settings);
 
 // =====================
 // Routes protégées par authentification et permission
@@ -162,6 +163,7 @@ app.use("/api/stock-movements", router.stockMovement);
 // Notifications
 app.use("/api/notifications", router.notifications);
 app.use("/api/alerts", router.alert);
+
 
 // =====================
 // Errors

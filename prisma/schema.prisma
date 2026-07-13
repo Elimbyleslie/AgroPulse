@@ -35,6 +35,7 @@ model Organization {
   backups       Backup[]
   audit         Audit[]
   payments      Payment[]
+    settings Settings[]
 }
 
 model Audit {
@@ -247,6 +248,9 @@ model Farm {
   clients               Client[]
   invoices              Invoice[]
   feedStocks            FeedStock[]
+  suppliers             Supplier[]
+
+  settings              Settings?
 
   @@unique([organizationId, name])
 }
@@ -345,6 +349,7 @@ model Purchase {
   farmId        Int
   supplierId    Int
   invoiceNumber String?
+  itemName      String?
   purchaseDate  DateTime
   totalAmount   Float
   taxAmount     Float?         @default(0)
@@ -896,6 +901,9 @@ model Supplier {
   name     String
   email    String?
   phone    String?
+  farmId   Int?
+
+  farm     Farm? @relation(fields: [farmId], references: [id])
 
   purchases    Purchase[]
   feedPurchase FeedPurchase[]
@@ -905,10 +913,10 @@ model Supplier {
 }
 
 enum SupplierCategory {
-  FEED // aliments & nutrition
-  MEDICAL // médicaments, vaccins
-  EQUIPMENT // matériel, outils
-  SERVICE // prestataires externes
+  FEED 
+  MEDICAL 
+  EQUIPMENT 
+  SERVICE 
   OTHER
 }
 
@@ -1557,4 +1565,56 @@ model Pedigree {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+
+/////////////////////////
+// SETTINGS & CONFIGURATION
+/////////////////////////
+
+model Settings {
+  id             Int      @id @default(autoincrement())
+  organizationId Int?
+  farmId         Int?     @unique // Une ferme = un jeu de paramètres
+
+  // === Configuration Générale ===
+  currency          String   @default("XOF") // F CFA
+  language          String   @default("fr")   // fr, en, etc.
+  dateFormat        String   @default("DD/MM/YYYY")
+  timezone          String   @default("Africa/Dakar")
+
+  // === Unités de Mesure ===
+  weightUnit        String   @default("kg")   // kg, g, lb
+  volumeUnit        String   @default("L")    // L, ml
+  areaUnit          String   @default("ha")   // ha, m², acres
+
+  // === Paramètres d'Élevage ===
+  defaultSpeciesId  Int?                     // Espèce par défaut
+  defaultBreedId    Int?
+  heatDetectionDays Int      @default(21)     // Cycle moyen de chaleur
+  gestationDuration Int      @default(280)    // Jours de gestation (bovins ~280)
+
+  // === Notifications ===
+  enableEmailAlerts Boolean  @default(true)
+  enableSmsAlerts   Boolean  @default(false)
+  lowStockThreshold Decimal  @default(10) @db.Decimal(12, 2) // Seuil alerte stock
+
+  // === Finance ===
+  taxRate           Float?   @default(0)     // Taux de TVA par défaut
+  defaultPaymentMethod PaymentMethod @default(cash)
+
+  // === Apparence & UI ===
+  primaryColor      String?  @default("#1e40af")
+  logoUrl           String?
+  farmName          String?
+
+  // === Métadonnées ===
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  farm         Farm?         @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, farmId]) 
 }

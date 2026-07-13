@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {
   getAllFeedSuppliers,
-  createFeedSupplier,
+  createSupplier,
   getFeedSupplierById,
   updateFeedSupplier,
   deleteFeedSupplier,
@@ -21,7 +21,7 @@ router.post(
   authenticate,
   authorizePermission([Permission.CREATE_FEED_SUPPLIER]),
   validator(createFeedSupplierSchema),
-  createFeedSupplier,
+  createSupplier,
 );
 router.get(
   "/",

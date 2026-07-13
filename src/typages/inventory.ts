@@ -19,8 +19,7 @@ export interface Inventory {
 }
 
 
-export enum InventoryCategory {
-    FEED = "FEED", 
+export enum InventoryCategory { 
   MEDICINE = "MEDICINE",
   SUPPLEMENT = "SUPPLEMENT",
   FERTILIZER= "FERTILIZER",
