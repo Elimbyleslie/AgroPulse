@@ -1,5 +1,5 @@
 // src/controllers/subscriptionController.ts
-import { Request, Response } from "express";
+import { Request, Response,NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 import { Subscription } from "../typages/subscription.js";
@@ -44,29 +44,74 @@ export const createSubscription = async (
 };
 
 // Lister les abonnements d'une organisation avec pagination et search
+// ========================
+// GET ORGANIZATION SUBSCRIPTIONS
+// ========================
 export const getOrganizationSubscriptions = async (
-  req: Request,
+  req: Request<
+    { organizationId: string },
+    {},
+    {},
+    { page?: string; limit?: string; status?: string; search?: string }
+  >,
   res: Response,
+  next: NextFunction
 ) => {
   try {
     const { organizationId } = req.params;
-    const { page = "1", limit = "10", search = "" } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
-    const subscriptions = await prisma.subscription.findMany({
-      where: { organizationId: Number(organizationId) },
-      take: Number(limit),
-      skip: Number(skip),
-      include: { plan: true },
-    });
-    return ResponseApi.success(
-      res,
-      "Liste des abonnements",
-      200,
+    const { page = "1", limit = "10", status, search } = req.query;
+
+    const pageNumber = Math.max(1, Number(page));
+    const limitNumber = Math.min(50, Math.max(1, Number(limit))); // Sécurité : max 50 par page
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const where: any = {
+      organizationId: Number(organizationId),
+    };
+
+    // Filtre par statut
+    if (status) {
+      where.status = status;
+    }
+
+    // Recherche sur le nom du plan (via include)
+    if (search) {
+      where.plan = {
+        name: {
+          contains: search,
+          mode: "insensitive",
+        },
+      };
+    }
+
+    const [subscriptions, totalItems] = await Promise.all([
+      prisma.subscription.findMany({
+        where,
+        skip,
+        take: limitNumber,
+        orderBy: { startDate: "desc" },
+        include: {
+          plan: true,           // Détails du plan
+          organization: true,   // Optionnel : infos organisation
+        },
+      }),
+      prisma.subscription.count({ where }),
+    ]);
+
+    return ResponseApi.success(res, "Liste des abonnements récupérée avec succès", 200, {
       subscriptions,
-    );
+      pagination: {
+        currentPage: pageNumber,
+        totalPages: Math.ceil(totalItems / limitNumber),
+        totalItems,
+        limit: limitNumber,
+        hasNext: pageNumber * limitNumber < totalItems,
+        hasPrevious: pageNumber > 1,
+      },
+    });
   } catch (error) {
-    console.error(error);
-    return ResponseApi.error(res, "Erreur serveur", 500);
+    console.error("Erreur getOrganizationSubscriptions :", error);
+    next(error); // Laisse le middleware global gérer l'erreur
   }
 };
 

@@ -1,5 +1,5 @@
 import * as Yup from "yup";
-
+import { EquipmentStatus ,MaintenanceFrequency } from "../typages/equipement.js";
 
 const forceNumber = (value: any) => {
   if (value === "" || value === null || value === undefined) return null;
@@ -27,24 +27,18 @@ export const createEquipmentSchema = Yup.object().shape({
     .transform(forceNumber)
     .nullable(),
 
-  status: Yup.string()
-    .oneOf(
-      ["operational", "underMaintenance", "outOfService"],
-      "Statut invalide"
-    )
-    .default("operational"),
+  status: Yup.mixed<EquipmentStatus>()
+    .oneOf(Object.values(EquipmentStatus), "Statut d'équipement invalide")
+    .default(EquipmentStatus.operational),
 
   value: Yup.number()
     .transform(forceNumber)
     .min(0, "La valeur ne peut pas être négative")
     .nullable(),
 
-  maintenanceFrequency: Yup.string()
-    .oneOf(
-      ["daily", "weekly", "monthly", "quarterly", "yearly", "custom"],
-      "Fréquence de maintenance invalide"
-    )
-    .default("monthly"),
+  maintenanceFrequency: Yup.mixed<MaintenanceFrequency>()
+    .oneOf(Object.values(MaintenanceFrequency), "Fréquence de maintenance invalide")
+    .default(MaintenanceFrequency.monthly),
 });
 
 export const updateEquipmentSchema = createEquipmentSchema.clone().shape({

@@ -88,13 +88,15 @@ app.use("/api/dashboard/status", getDashboardStatus);
 // =====================
 
 app.use("/api/organizations", router.organization);
-app.use("/api/plan", router.plan);
+app.use("/api/plans", router.plan);
 app.use("/api/audit", router.audit);
 app.use("/api/APIKey", router.apiKeys);
 app.use("/api/users", router.user);
 app.use("/api/subscriptions", router.subscription);
 app.use("/api/clients", router.client);
 app.use("/api/settings", router.settings);
+app.use("api/invoices", router.invoice);
+
 
 // =====================
 // Routes protégées par authentification et permission

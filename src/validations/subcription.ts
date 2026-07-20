@@ -1,15 +1,38 @@
-import * as yup from "yup";
+import * as Yup from "yup";
+import { SubscriptionStatus, RenewalType } from "../typages/subscription.js"; 
 
-export const createSubscriptionSchema = yup.object().shape({
-  name: yup.string().required("Nom est obligatoire"),
-  price: yup.number().required("Prix est obligatoire"),
-  duration: yup.number().required("Duree est obligatoire"),
-  description: yup.string().required("Description est obligatoire"),
+export const subscriptionValidationSchema = Yup.object().shape({
+  organizationId: Yup.number()
+    .positive("L'ID de l'organisation est obligatoire")
+    .required("L'organisation est requise"),
+
+  planId: Yup.number()
+    .positive("L'ID du plan est obligatoire")
+    .required("Le plan est requis"),
+
+  renewalType: Yup.string()
+    .oneOf(
+      Object.values(RenewalType),
+      "Type de renouvellement invalide"
+    )
+    .default(RenewalType.MANUAL)
+    .required(),
+
+  status: Yup.string()
+    .oneOf(
+      Object.values(SubscriptionStatus),
+      "Statut d'abonnement invalide"
+    )
+    .default(SubscriptionStatus.ACTIVE)
+    .required(),
 });
 
-export const updateSubscriptionSchema = yup.object().shape({
-  name: yup.string(),
-  price: yup.number(),
-  duration: yup.number(),
-  description: yup.string(),
-});
+// Schéma pour mise à jour (plus permissif)
+export const subscriptionUpdateValidationSchema = Yup.object().shape({
+  organizationId: Yup.number().positive(),
+  planId: Yup.number().positive(),
+  startDate: Yup.date().min(new Date()),
+  endDate: Yup.date().min(Yup.ref("startDate")),
+  renewalType: Yup.string().oneOf(Object.values(RenewalType)),
+  status: Yup.string().oneOf(Object.values(SubscriptionStatus)),
+}).noUnknown(true); // Rejette les champs inconnus

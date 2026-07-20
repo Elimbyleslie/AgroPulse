@@ -1,4 +1,4 @@
-import { PaymentMethod, PaymentStatus } from "../../generated/prisma/enums.js";
+import { PaymentMethod } from "../../generated/prisma/enums.js";
 
 export interface Payment {
   id: number;
@@ -13,3 +13,11 @@ export interface Payment {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export enum PaymentStatus  {
+  PENDING= 'PENDING',
+  SUCCESS= 'SUCCESS',
+  FAILED= 'FAILED',
+  CANCELLED= 'CANCELLED',
+  REFUNDED= 'REFUNDED'
+} 

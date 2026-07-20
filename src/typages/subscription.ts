@@ -1,4 +1,14 @@
-import { SubscriptionStatus, RenewalType } from "../../generated/prisma/enums";
+
+
+export enum  SubscriptionStatus {
+  ACTIVE = "ACTIVE",
+  CANCELED = "CANCELED",
+  EXPIRED = "EXPIRED",
+}
+export enum RenewalType {
+  AUTO = "AUTO",
+  MANUAL = "MANUAL",
+}
 
 export interface Subscription {
   id: number;

@@ -12,7 +12,7 @@ export const createPurchase = async (
   next: NextFunction,
 ) => {
   try {
-    const { farmId, supplierId, totalAmount, purchaseDate, notes,status, taxAmount, createdById } =
+    const { farmId, supplierId, totalAmount, purchaseDate, notes,status, taxAmount, createdById,itemName,invoiceNumber } =
       req.body;
 
     if (!farmId) {
@@ -28,11 +28,13 @@ export const createPurchase = async (
         farmId,
         supplierId,
         totalAmount,
+        itemName,
         notes,
         purchaseDate,
         taxAmount,
         createdById: req.user?.id,
-        status: PurchaseStatus.PENDING,
+        status:  status ?? PurchaseStatus.PENDING,
+        invoiceNumber,
       },
     });
 
@@ -148,22 +150,26 @@ export const updatePurchase = async (
       return ResponseApi.error(res, "ID invalide", 400);
     }
 
-    const { farmId, supplierId, totalAmount, purchaseDate, notes, taxAmount, status } =
+    const { farmId, supplierId, totalAmount, purchaseDate, notes, taxAmount, status,itemName,invoiceNumber } =
       req.body;
 
     const updateData: any = {};
     if (farmId) updateData.farmId = Number(farmId);
     if (supplierId) updateData.supplierId = Number(supplierId);
     if (totalAmount) updateData.totalAmount = Number(totalAmount);
+    if (itemName) updateData.itemName =itemName;
     if (purchaseDate) updateData.purchaseDate = purchaseDate;
     if (notes) updateData.notes = notes;
     if (taxAmount) updateData.taxAmount = Number(taxAmount);
     if (status) updateData.status = status;
+    if (invoiceNumber) updateData.invoiceNumber = invoiceNumber;
+
 
     const updated = await prisma.purchase.update({
       where: { id: Number(id) },
       data: {
         ...updateData,
+        invoiceNumber,
         createdById: req.user?.id,
       },
     });

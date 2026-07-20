@@ -3,6 +3,7 @@ export interface Purchase {
   supplierId: number;
   farmId: number;
   totalAmount: number;
+  itemName:string;
   notes?: string;
   purchaseDate: string; 
   invoiceNumber?: string;
@@ -14,8 +15,6 @@ export interface Purchase {
 
 export enum PurchaseStatus {
   PENDING = "PENDING",
-  SUCCESS = "SUCCESS",
-  FAILED = "FAILED",
+  RECEIVED="RECEIVED",
   CANCELLED = "CANCELLED",
-  REFUNDED = "REFUNDED",
 }
