@@ -1,45 +1,78 @@
 // src/controllers/subscriptionController.ts
-import { Request, Response,NextFunction } from "express";
+import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 import { Subscription } from "../typages/subscription.js";
 import { SubscriptionStatus } from "../../generated/prisma/enums.js";
+import { PaymentStatus, PaymentMethod } from "../typages/payment.js";
+import { Invoices,InvoiceStatus } from  "../typages/invoices.js";
 
 // Créer un abonnement
-export const createSubscription = async (
-  req: Request<{}, {}, Subscription>,
-  res: Response,
-) => {
+export const createSubscription = async (req: Request, res: Response) => {
   try {
     const { organizationId, planId, renewalType } = req.body;
 
-    if (!organizationId || !planId || !renewalType) {
-      return ResponseApi.error(res, "Champs requis manquants", 400);
+    if (!organizationId || !planId) {
+      return ResponseApi.error(res, "organizationId et planId requis", 400);
     }
 
-    const plan = await prisma.plan.findUnique({ where: { id: planId } });
-    if (!plan) return ResponseApi.error(res, "Plan introuvable", 404);
+    const result = await prisma.$transaction(async (tx) => {
+      const subscription = await tx.subscription.create({
+        data: {
+          organizationId,
+          planId,
+          renewalType,
+          status: SubscriptionStatus.active,
+          startDate: new Date(),
+          endDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
+        },
+        include: { plan: true },
+      });
 
-    const startDate = new Date();
-    const endDate = new Date();
-    endDate.setDate(startDate.getDate() + plan.durationDays);
+      // price peut être un Prisma.Decimal — à convertir explicitement
+      const priceAsNumber = Number(subscription.plan.price);
 
-    const subscription = await prisma.subscription.create({
-      data: {
-        organizationId,
-        planId,
-        startDate,
-        endDate,
-        renewalType,
-        status: SubscriptionStatus.active,
-      },
-      include: { plan: true },
+      const payment = await tx.payment.create({
+        data: {
+          organizationId,
+          amount: priceAsNumber,
+          method: PaymentMethod.mobile_money,
+          status: PaymentStatus.SUCCESS,
+          reference: `SUB-${subscription.id}`,
+          userId: req.user?.id,
+          paidAt: new Date(),
+        },
+      });
+
+      const invoice = await tx.invoice.create({
+        data: {
+          organizationId,
+          subscriptionId: subscription.id,
+          amount: priceAsNumber,
+          status: InvoiceStatus.paid,
+          currency: "XAF",
+          paymentMethod: PaymentMethod.mobile_money,
+          issuedAt: new Date(),
+          dueAt: new Date(), // payée immédiatement — à confirmer selon ta règle métier
+        },
+      });
+
+      return { subscription, payment, invoice };
     });
 
-    return ResponseApi.success(res, "Abonnement créé", 201, subscription);
+    return ResponseApi.success(
+      res,
+      "Abonnement + paiement initial enregistrés",
+      201,
+      result.subscription,
+    );
   } catch (error) {
     console.error(error);
-    return ResponseApi.error(res, "Erreur serveur", 500);
+    // En dev seulement — ne jamais exposer error.message brut en prod
+    const message = process.env.NODE_ENV === "development"
+      ? (error as Error).message
+      : "Erreur serveur";
+    return ResponseApi.error(res, message, 500);
   }
 };
 
@@ -55,7 +88,7 @@ export const getOrganizationSubscriptions = async (
     { page?: string; limit?: string; status?: string; search?: string }
   >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { organizationId } = req.params;
@@ -91,24 +124,29 @@ export const getOrganizationSubscriptions = async (
         take: limitNumber,
         orderBy: { startDate: "desc" },
         include: {
-          plan: true,           // Détails du plan
-          organization: true,   // Optionnel : infos organisation
+          plan: true, // Détails du plan
+          organization: true, // Optionnel : infos organisation
         },
       }),
       prisma.subscription.count({ where }),
     ]);
 
-    return ResponseApi.success(res, "Liste des abonnements récupérée avec succès", 200, {
-      subscriptions,
-      pagination: {
-        currentPage: pageNumber,
-        totalPages: Math.ceil(totalItems / limitNumber),
-        totalItems,
-        limit: limitNumber,
-        hasNext: pageNumber * limitNumber < totalItems,
-        hasPrevious: pageNumber > 1,
+    return ResponseApi.success(
+      res,
+      "Liste des abonnements récupérée avec succès",
+      200,
+      {
+        subscriptions,
+        pagination: {
+          currentPage: pageNumber,
+          totalPages: Math.ceil(totalItems / limitNumber),
+          totalItems,
+          limit: limitNumber,
+          hasNext: pageNumber * limitNumber < totalItems,
+          hasPrevious: pageNumber > 1,
+        },
       },
-    });
+    );
   } catch (error) {
     console.error("Erreur getOrganizationSubscriptions :", error);
     next(error); // Laisse le middleware global gérer l'erreur

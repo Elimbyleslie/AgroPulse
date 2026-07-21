@@ -1,37 +1,48 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
-import { Sale, SaleItem, SaleStatus, PaymentMethod } from "../typages/expenseSale.js";
+import { Sale, SaleItem, SaleStatus, PaymentMethod,  } from "../typages/expenseSale.js";
+import {PaymentStatus } from "../typages/payment.js";
 
 // ========================
 // CREATE SALE
 // ========================
-export const createSale = async (
-  req: Request<{}, {}, Sale>,
-  res: Response,
-  next: NextFunction
-) => {
+export const createSale = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { farmId, date, clientId, notes, status, paymentMethod } = req.body;
+    const { farmId, clientId, total, notes, paymentMethod = "cash", status = SaleStatus.COMPLETED } = req.body;
+    const user = req.user;
 
     const sale = await prisma.sale.create({
       data: {
-        farmId,
-        date: new Date(date),
-        total: 0,                 
-        clientId: clientId || null,
-        notes: notes || null,
-        status: status || SaleStatus.COMPLETED,
+        date: new Date(),
+        farm: { connect: { id: Number(farmId) } },
+        client: { connect: { id: Number(clientId) } },
+        total,
+        notes,
+        status,
         paymentMethod,
       },
-      include: {
-        client: true,
-        farm: true,
-      },
+      include: { client: true },
     });
 
-    return ResponseApi.success(res, "Vente créée avec succès (en attente d'articles)", 201, sale);
-  } catch (error: any) {
+    // Création automatique du Payment
+    if (status === SaleStatus.COMPLETED && total > 0) {
+      await prisma.payment.create({
+        data: {
+          saleId: sale.id,
+          farmId,
+          organizationId: user?.defaultOrganizationId,
+          amount: total,
+          method: paymentMethod,
+          status: PaymentStatus.SUCCESS,
+          reference: `SALE-${sale.id}`,
+          userId: user?.id,
+        },
+      });
+    }
+
+    return ResponseApi.success(res, "Vente + paiement enregistrés", 201, sale);
+  } catch (error) {
     next(error);
   }
 };

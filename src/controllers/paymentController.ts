@@ -46,41 +46,50 @@ export const getAllPayments = async (
       search?: string;
       page?: string;
       limit?: string;
+      organizationId?: string;
     }
   >,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const { method, status, search } = req.query;
+    const { method, status, search, organizationId } = req.query;
 
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 10;
-    const offset = (page - 1) * limit;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
+    const skip = (page - 1) * limit;
 
     const where: any = {};
 
+    // Filtres
+    if (organizationId) where.organizationId = Number(organizationId);
     if (method) where.method = method;
     if (status) where.status = status;
-    if (search) where.reference = { contains: search, mode: "insensitive" };
 
-    const payments = await prisma.payment.findMany({
-      skip: offset,
-      take: limit,
-      orderBy: { id: "desc" },
-      include: {
-        user: true,
-        sale: true,
-        organization: true,
-        farm:true,
-        purchase:true,
-      },
-      where: { ...where
-        
-       },
-    });
+    // Recherche sur référence ou d'autres champs
+    if (search) {
+      where.OR = [
+        { reference: { contains: search, mode: "insensitive" } },
+        { notes: { contains: search, mode: "insensitive" } },
+      ];
+    }
 
-    const totalItems = await prisma.payment.count({ where });
+    const [payments, totalItems] = await Promise.all([
+      prisma.payment.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { paidAt: "desc" },        // Mieux que par id
+        include: {
+          user: true,
+          sale: true,
+          organization: true,
+          farm: true,
+          purchase: true,
+        },
+      }),
+      prisma.payment.count({ where }),
+    ]);
 
     return ResponseApi.success(res, "Liste des paiements récupérée", 200, {
       payments,

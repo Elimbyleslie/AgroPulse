@@ -1,4 +1,5 @@
-import { InvoiceStatus } from "../../generated/prisma/client.js";
+
+
 export interface Invoices {
   id: number;
   organizationId: number;
@@ -8,4 +9,10 @@ export interface Invoices {
   paymentMethod: string;
   currency: string;
   issuedAt: Date;
+}
+
+export enum InvoiceStatus  {
+  pending = "pending",
+  paid = "paid",
+  overdue = "overdue",
 }

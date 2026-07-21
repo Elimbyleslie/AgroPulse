@@ -1,5 +1,5 @@
-
-
+import { Plan } from "./plan.js";
+import { Invoices } from "./invoices.js";
 export enum  SubscriptionStatus {
   ACTIVE = "ACTIVE",
   CANCELED = "CANCELED",
@@ -18,4 +18,6 @@ export interface Subscription {
   endDate: Date;
   renewalType: RenewalType;
   status: SubscriptionStatus;
+  plan: Plan;
+  invoices:Invoices[];
 }

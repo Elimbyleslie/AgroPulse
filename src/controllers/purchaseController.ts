@@ -2,43 +2,34 @@ import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 import { Purchase, PurchaseStatus } from "../typages/purchase.js";
+import {PaymentStatus } from "../typages/payment.js";
 
 // ======================================================
 // CREATE Purchase
 // ======================================================
-export const createPurchase = async (
-  req: Request<{}, {}, Purchase>,
-  res: Response,
-  next: NextFunction,
-) => {
+export const createPurchase = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { farmId, supplierId, totalAmount, purchaseDate, notes,status, taxAmount, createdById,itemName,invoiceNumber } =
-      req.body;
+    const { farmId, supplierId, totalAmount, ...rest } = req.body;
 
-    if (!farmId) {
-      return ResponseApi.error(res, "farmId est obligatoire", 400);
+    const purchase = await prisma.purchase.create({ data: { farmId, supplierId, totalAmount, ...rest } });
+
+    // Enregistrer le paiement
+    if (rest.status === PurchaseStatus.RECEIVED && totalAmount > 0) {
+      await prisma.payment.create({
+        data: {
+          purchaseId: purchase.id,
+          farmId,
+          organizationId: req.user?.defaultOrganizationId,
+          amount: totalAmount,
+          method: rest.paymentMethod || "cash",
+          status: PaymentStatus.SUCCESS,
+          reference: `PURCHASE-${purchase.id}`,
+          userId: req.user?.id,
+        },
+      });
     }
 
-    if (supplierId === undefined) {
-      throw new Error("Le supplierId est obligatoire pour créer un achat.");
-    }
-
-    const purchase = await prisma.purchase.create({
-      data: {
-        farmId,
-        supplierId,
-        totalAmount,
-        itemName,
-        notes,
-        purchaseDate,
-        taxAmount,
-        createdById: req.user?.id,
-        status:  status ?? PurchaseStatus.PENDING,
-        invoiceNumber,
-      },
-    });
-
-    return ResponseApi.success(res, "Achat créé avec succès", 201, purchase);
+    return ResponseApi.success(res, "Achat + paiement enregistrés", 201, purchase);
   } catch (error) {
     next(error);
   }
