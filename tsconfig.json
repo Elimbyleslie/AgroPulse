@@ -8,12 +8,12 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "dist",
-    "rootDir": "./src",
     "sourceMap": true,
     "ignoreDeprecations": "6.0",
     "baseUrl": "./src",
     "paths": {
-      "@/*": ["*"]
+      "@/*": ["*"],
+      "@prisma/client": ["../generated/prisma/client.js"]
     },
     "typeRoots": ["src/types", "./node_modules/@types"]
   },

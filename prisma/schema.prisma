@@ -270,11 +270,13 @@ model Barn {
   capacity  Int?
   photo     String?
   createdAt DateTime @default(now())
+  
 
   farm    Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
   animals Animal[]
   pens    Pen[]
-  lots    Lot[] // utile pour stats / historique
+  lots    Lot[]
+  herds   Herd[]
 }
 
 model Pen {
@@ -328,11 +330,13 @@ model Herd {
   speciesId Int
   photo     String?
   createdAt DateTime @default(now())
+  barnId    Int
 
   // ================= RELATIONS =================
 
   farm    Farm    @relation(fields: [farmId], references: [id], onDelete: Cascade)
   species Species @relation(fields: [speciesId], references: [id])
+  barn    Barn    @relation(fields: [barnId], references: [id])
 
   lots    Lot[]
   animals Animal[]

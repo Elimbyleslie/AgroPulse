@@ -16,6 +16,7 @@ export const createHerd = async (
     const farmId = Number(req.body.farmId);
     const speciesId = Number(req.body.speciesId);
     const name = req.body.name;
+    const barnId= Number(req.body.barnId);
 
     // 2. Validation des champs obligatoires
     if (!farmId || !speciesId || !name) {
@@ -53,7 +54,8 @@ export const createHerd = async (
         farmId, 
         speciesId, 
         name, 
-        photo: photoPath 
+        photo: photoPath ,
+        barnId
       },
       include: {
         species: true // Utile pour renvoyer les détails de l'espèce au front

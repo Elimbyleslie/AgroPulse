@@ -11,6 +11,5 @@ const adapter = new PrismaMariaDb({
 });
 const prisma = new PrismaClient({ adapter });
 
-
 export default prisma;
 // You can add any Prisma Client extensions or custom methods here if needed

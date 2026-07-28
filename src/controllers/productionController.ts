@@ -19,14 +19,13 @@ export const createProduction = async (
       herdId,
       penId,
       date,
-      Category,
-      Type,
+      category,
+      type,
       quantity,
       unit,
       qualityGrade,
       notes,
       userId,
-      saleItemId,
     } = req.body;
 
     const production = await prisma.production.create({
@@ -37,14 +36,13 @@ export const createProduction = async (
         herdId: herdId ? Number(herdId) : null,
         penId: penId ? Number(penId) : null,
         date: date ? new Date(date) : new Date(),
-        category: Category,
-        type: Type,
+        category: category,
+        type: type,
         quantity: Number(quantity),
         unit,
         qualityGrade: qualityGrade || null,
         notes: notes || null,
         userId: userId ? Number(userId) : null,
-        saleItemId: saleItemId ? Number(saleItemId) : null,
       },
       include: {
         lot: { select: { name: true } },
@@ -77,41 +75,39 @@ export const updateProduction = async (
       herdId,
       penId,
       date,
-      Category,
-      Type,
+      category,
+      type,
       quantity,
       unit,
       qualityGrade,
       notes,
       userId,
-      saleItemId,
     } = req.body;
 
-    const updated = await prisma.production.update({
-      where: { id: Number(req.params.id) },
-      data: {
-        ...(farmId !== undefined && { farmId: Number(farmId) }),
-        ...(lotId !== undefined && { lotId: lotId ? Number(lotId) : null }),
-        ...(animalId !== undefined && { animalId: animalId ? Number(animalId) : null }),
-        ...(herdId !== undefined && { herdId: herdId ? Number(herdId) : null }),
-        ...(penId !== undefined && { penId: penId ? Number(penId) : null }),
-        ...(date !== undefined && { date: date ? new Date(date) : new Date() }),
-        ...(Category !== undefined && { Category }),
-        ...(Type !== undefined && { Type }),
-        ...(quantity !== undefined && { quantity: Number(quantity) }),
-        ...(unit !== undefined && { unit }),
-        ...(qualityGrade !== undefined && { qualityGrade: qualityGrade || null }),
-        ...(notes !== undefined && { notes: notes || null }),
-        ...(userId !== undefined && { userId: userId ? Number(userId) : null }),
-        ...(saleItemId !== undefined && { saleItemId: saleItemId ? Number(saleItemId) : null }),
-      },
-      include: {
-        lot: { select: { name: true } },
-        animal: { select: { name: true } },
-        herd: { select: { name: true } },
-        pen: { select: { name: true } },
-      },
-    });
+  const updated = await prisma.production.update({
+  where: { id: Number(req.params.id) },
+  data: {
+    ...(farmId !== undefined && { farmId: Number(farmId) }),
+    ...(lotId !== undefined && { lotId: lotId ? Number(lotId) : null }),
+    ...(animalId !== undefined && { animalId: animalId ? Number(animalId) : null }),
+    ...(herdId !== undefined && { herdId: herdId ? Number(herdId) : null }),
+    ...(penId !== undefined && { penId: penId ? Number(penId) : null }),
+    ...(date !== undefined && { date: date ? new Date(date) : new Date() }),
+    ...(category !== undefined && { category: category }),   // ← minuscule
+    ...(type !== undefined && { type: type }),               // ← minuscule
+    ...(quantity !== undefined && { quantity: Number(quantity) }),
+    ...(unit !== undefined && { unit }),
+    ...(qualityGrade !== undefined && { qualityGrade: qualityGrade || null }),
+    ...(notes !== undefined && { notes: notes || null }),
+    ...(userId !== undefined && { userId: userId ? Number(userId) : null }),
+  },
+  include: {
+    lot: { select: { name: true } },
+    animal: { select: { name: true } },
+    herd: { select: { name: true } },
+    pen: { select: { name: true } },
+  },
+});
 
     return ResponseApi.success(res, "Production mise à jour avec succès", 200, updated);
   } catch (error: any) {
@@ -191,7 +187,7 @@ export const getAllProductions = async (
           herd: { select: { id: true, name: true } },
           pen: { select: { id: true, name: true } },
           user: { select: { id: true, userName: true, email: true } },
-          saleItem: { select: { id: true, saleId: true } },
+          saleItems: { select: { id: true, saleId: true } },
         },
       }),
       prisma.production.count({ where }),

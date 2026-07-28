@@ -4,5 +4,6 @@ export interface Herd {
   speciesId: number;
   name: string;
   photo?: string;
+  barnId:number;
   createdAt?: Date;
 }

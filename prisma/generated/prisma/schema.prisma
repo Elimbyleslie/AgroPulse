@@ -1,0 +1,1619 @@
+// schema.prisma
+// AgroPulse - Prisma schema complet (MySQL)
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+/////////////////////////
+// ORGANIZATIONS / SAAS
+/////////////////////////
+
+model Organization {
+  id        Int      @id @default(autoincrement())
+  name      String
+  address   String?  @db.Text
+  ownerName String
+  ownerId   Int
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+
+  owner User   @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  users User[] @relation("OrganizationMembers")
+
+  farms         Farm[]
+  subscriptions Subscription[]
+  invoices      Invoice[]
+  apiKeys       ApiKey[]
+  backups       Backup[]
+  audit         Audit[]
+  payments      Payment[]
+  settings      Settings[]
+}
+
+model Audit {
+  id             Int      @id @default(autoincrement())
+  userId         Int? // Utilisateur ayant fait l’action (optionnel si c’est un processus automatique)
+  organizationId Int?
+  farmId         Int? // Ferme concernée (optionnel si l’action concerne l’organisation entière)  
+  tableTarget    String // Nom de la table concernée (ex: 'animals', 'expenses', 'sales')
+  action         String // Type d’action: CREATE, UPDATE, DELETE, LOGIN, EXPORT, etc.
+  recordId       Int?
+  description    String? // Détails de l’action effectuée
+  previousData   Json? // Données avant modification (utile pour les UPDATE ou DELETE)
+  newData        Json?
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  // Relations
+  user         User?         @relation(fields: [userId], references: [id])
+  farm         Farm?         @relation(fields: [farmId], references: [id])
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([tableTarget])
+  @@index([action])
+}
+
+/////////////////////////
+// USERS / ROLES / PERMISSIONS
+/////////////////////////
+
+model User {
+  id                    Int       @id @default(autoincrement())
+  name                  String
+  userName              String
+  email                 String    @unique
+  password              String
+  phone                 String?
+  defaultFarmId         Int?
+  defaultOrganizationId Int?
+  photo                 String?
+  refreshToken          String?   @db.VarChar(1000)
+  lastConnexion         DateTime?
+  onboardingComplete    Boolean   @default(false)
+  otp                   String?
+  secretOtp             String?
+  otpExpiresAt          DateTime?
+  googleId              String?
+
+  provider      AuthProvider @default(LOCAL)
+  emailVerified Boolean      @default(false)
+  token         String?
+  expireAtToken DateTime?
+  fcmToken      String?
+  status        UserStatus   @default(active)
+  createdAt     DateTime     @default(now())
+
+  reproductionCycles  ReproductionCycle[]    @relation("CycleTechnician")
+  gestations          Gestation[]            @relation("GestationVet")
+  gestationCheckups   GestationCheckup[]     @relation("CheckupVet")
+  ownedOrganizations  Organization[]         @relation("OrganizationOwner")
+  memberOrganizations Organization[]         @relation("OrganizationMembers")
+  farm                Farm?                  @relation("DefaultFarm", fields: [defaultFarmId], references: [id], onDelete: SetNull)
+  farms               Farm[]                 @relation("UserFarms")
+  affiliations        FarmUser[]
+  roles               UserRole[]
+  activityLogs        ActivityLog[]
+  notifications       Notification[]
+  performedTasks      FarmTask[]             @relation("AssignedTasks")
+  healthRecords       AnimalHealthRecord[]   @relation("VetHealthRecords")
+  maintenance         EquipmentMaintenance[] @relation("MaintenanceByUser")
+  animalWeights       AnimalWeight[]         @relation("RecorderWeights")
+  feedings            AnimalFeeding[]        @relation("FeedingByUser")
+  transfers           AnimalTransfer[]       @relation("TransferByUser")
+  treatments          AnimalTreatment[]      @relation("TreatmentByUser")
+  AnimalVaccination   AnimalVaccination[]
+  animalDeath         AnimalDeath[]
+  audits              Audit[]
+  productions         Production[]           @relation("ProductionByUser")
+  births              Birth[]                @relation("RecordedByUser")
+  payments            Payment[]              @relation("PaymentByUser")
+  animalMovedByMe     AnimalMovement[]       @relation("MovedBy")
+  feedingPlan         FeedingPlan[]          @relation("InchargeByUser")
+  purchases           Purchase[]
+  financialReports    FinancialReport[]
+  expenses            Expense[]
+  stockMovements      StockMovement[]
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+}
+
+enum UserStatus {
+  active
+  inactive
+}
+
+model Role {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  description String?
+  users       UserRole[]
+  permissions RolePermission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model Permission {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  // assignedBy  String?    @default("system")
+  // assignedAt  DateTime?  @default(now())
+
+  rolePermissions RolePermission[]
+}
+
+model UserRole {
+  userId     Int
+  roleId     Int
+  assignedBy String
+  assignedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+}
+
+model RolePermission {
+  roleId       Int
+  permissionId Int
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  action      String?
+  description String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/////////////////////////
+// FARMS / STRUCTURE
+/////////////////////////
+
+model Farm {
+  id             Int       @id @default(autoincrement())
+  organizationId Int?
+  name           String
+  managerId      Int
+  location       String?
+  area           Decimal?  @db.Decimal(12, 2)
+  areaUnit       String?
+  photo          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime? @updatedAt
+
+  geneticPerfomance     GeneticPerformance[]
+  reproductionCycles    ReproductionCycle[]
+  gestations            Gestation[]
+  organization          Organization?          @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  manager               User                   @relation("UserFarms", fields: [managerId], references: [id])
+  members               FarmUser[]
+  users                 User[]                 @relation("DefaultFarm") // si tu veux garder une relation directe
+  barns                 Barn[]
+  herds                 Herd[]
+  lots                  Lot[]
+  animals               Animal[]
+  purchases             Purchase[]
+  expenses              Expense[]
+  sales                 Sale[]
+  inventory             Inventory[]
+  farmTasks             FarmTask[]
+  alerts                Alert[]
+  reports               Report[]
+  financialReports      FinancialReport[]
+  equipmentMaintenances EquipmentMaintenance[]
+  audit                 Audit[]
+  births                Birth[]
+  equipments            Equipment[]
+  paiments              Payment[]
+  feedPurchase          FeedPurchase[]
+  treatements           AnimalTreatment[]
+  animalHealthRecord    AnimalHealthRecord[]
+  feedingPlan           FeedingPlan[]
+  productions           Production[]
+  clients               Client[]
+  invoices              Invoice[]
+  feedStocks            FeedStock[]
+  suppliers             Supplier[]
+
+  settings Settings?
+
+  @@unique([organizationId, name])
+}
+
+model FarmUser {
+  id     Int  @id @default(autoincrement())
+  farmId Int
+  userId Int
+  farm   Farm @relation(fields: [farmId], references: [id])
+  user   User @relation(fields: [userId], references: [id])
+}
+
+model Barn {
+  id        Int      @id @default(autoincrement())
+  farmId    Int
+  name      String
+  capacity  Int?
+  photo     String?
+  createdAt DateTime @default(now())
+
+  farm    Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  animals Animal[]
+  pens    Pen[]
+  lots    Lot[] // utile pour stats / historique
+}
+
+model Pen {
+  id       Int    @id @default(autoincrement())
+  barnId   Int
+  name     String
+  capacity Int?
+
+  // ================= RELATIONS =================
+
+  barn Barn @relation(fields: [barnId], references: [id], onDelete: Cascade)
+
+  lots    Lot[]
+  animals Animal[]
+
+  // 🔥 mouvements (historique)
+  movementsFrom AnimalMovement[] @relation("MovementFromPen")
+  movementsTo   AnimalMovement[] @relation("MovementToPen")
+  feedingPlan   FeedingPlan[]
+  production    Production[]
+}
+
+/////////////////////////
+// SPECIES / BREEDS / HERDS / LOTS
+/////////////////////////
+
+model Species {
+  id   Int     @id @default(autoincrement())
+  code String? @unique
+  name String
+
+  breeds  Breed[]
+  herds   Herd[]
+  lots    Lot[]
+  animals Animal[]
+}
+
+model Breed {
+  id        Int      @id @default(autoincrement())
+  speciesId Int
+  name      String
+  species   Species  @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  lots      Lot[]
+  animals   Animal[]
+}
+
+model Herd {
+  id        Int      @id @default(autoincrement())
+  farmId    Int
+  name      String
+  speciesId Int
+  photo     String?
+  createdAt DateTime @default(now())
+
+  // ================= RELATIONS =================
+
+  farm    Farm    @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  species Species @relation(fields: [speciesId], references: [id])
+
+  lots    Lot[]
+  animals Animal[]
+
+  // 🔥 mouvements (historique)
+  movementsFrom AnimalMovement[] @relation("MovementFromHerd")
+  movementsTo   AnimalMovement[] @relation("MovementToHerd")
+  feedingPlan   FeedingPlan[]
+  production    Production[]
+}
+
+model Purchase {
+  id            Int            @id @default(autoincrement())
+  farmId        Int
+  supplierId    Int
+  invoiceNumber String?
+  itemName      String?
+  purchaseDate  DateTime
+  totalAmount   Float
+  taxAmount     Float?         @default(0)
+  status        PurchaseStatus @default(RECEIVED)
+
+  notes       String?
+  createdAt   DateTime @default(now())
+  createdById Int?
+
+  farm      Farm           @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  supplier  Supplier       @relation(fields: [supplierId], references: [id])
+  createdBy User?          @relation(fields: [createdById], references: [id])
+  payments  Payment[]
+  items     PurchaseItem[] // ← Nouveau !
+
+  @@map("purchases")
+}
+
+enum PurchaseStatus {
+  PENDING
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseItem {
+  id          Int     @id @default(autoincrement())
+  purchaseId  Int
+  inventoryId Int? // Si c'est du stock
+  name        String
+  quantity    Decimal @db.Decimal(10, 2)
+  unitPrice   Float
+  totalPrice  Float
+
+  purchase  Purchase   @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  inventory Inventory? @relation(fields: [inventoryId], references: [id])
+}
+
+model FinancialReport {
+  id            Int                 @id @default(autoincrement())
+  farmId        Int
+  type          FinancialReportType
+  periodStart   DateTime
+  periodEnd     DateTime
+  totalRevenue  Float
+  totalExpense  Float
+  grossProfit   Float
+  netProfit     Float
+  data          Json // Données détaillées (par catégorie, etc.)
+  generatedById Int?
+  createdAt     DateTime            @default(now())
+
+  farm        Farm  @relation(fields: [farmId], references: [id])
+  generatedBy User? @relation(fields: [generatedById], references: [id])
+}
+
+enum FinancialReportType {
+  PROFIT_LOSS // Bénéfices / Pertes
+  CASHFLOW
+  BALANCE_SHEET
+  EXPENSE_ANALYSIS
+  REVENUE_ANALYSIS
+}
+
+model Lot {
+  id Int @id @default(autoincrement())
+
+  farmId Int
+  herdId Int?
+  barnId Int?
+  penId  Int?
+
+  name  String
+  photo String?
+
+  speciesId Int?
+  breedId   Int?
+
+  ageGroup  AgeGroup?
+  quantity  Int       @default(0)
+  entryDate DateTime?
+  status    LotStatus @default(active)
+
+  // ================= RELATIONS =================
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  herd Herd? @relation(fields: [herdId], references: [id], onDelete: SetNull)
+
+  barn Barn? @relation(fields: [barnId], references: [id], onDelete: SetNull)
+
+  pen Pen? @relation(fields: [penId], references: [id], onDelete: SetNull)
+
+  species Species? @relation(fields: [speciesId], references: [id], onDelete: SetNull)
+
+  breed Breed? @relation(fields: [breedId], references: [id], onDelete: SetNull)
+
+  // ================= BUSINESS =================
+
+  animals Animal[]
+
+  // 🔥 mouvements (historique)
+  movementsFrom AnimalMovement[] @relation("MovementFromLot")
+  movementsTo   AnimalMovement[] @relation("MovementToLot")
+
+  healthRecords         AnimalHealthRecord[]
+  vaccinations          AnimalVaccination[]
+  treatments            AnimalTreatment[]
+  feedUsages            FeedUsage[]
+  animalFeedings        AnimalFeeding[]
+  animalTransfersSource AnimalTransfer[]     @relation("TransferSource")
+  animalTransfersTarget AnimalTransfer[]     @relation("TransferTarget")
+  saleItems             SaleItem[]
+  animalDeath           AnimalDeath[]
+  productions           Production[]
+  births                Birth[]
+  feedingPlan           FeedingPlan[]
+}
+
+enum LotStatus {
+  active
+  closed
+}
+
+enum AgeGroup {
+  young
+  adult
+  breeding
+  fattening
+  mixed
+}
+
+/////////////////////////
+// ANIMALS / HEALTH / REPRODUCTION
+/////////////////////////
+model Birth {
+  id                   Int      @id @default(autoincrement())
+  farmId               Int
+  lotId                Int?
+  motherId             Int
+  fatherId             Int?
+  photo                String?
+  date                 DateTime
+  numberBorn           Int      @default(1)
+  numberAlive          Int      @default(1)
+  numberDead           Int      @default(0)
+  notes                String?
+  userId               Int?
+  animalReproductionId Int?
+
+  // Relations
+  gestationId Int? @unique
+
+  gestation           Gestation?          @relation(fields: [gestationId], references: [id], onDelete: SetNull)
+  farm                Farm                @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  lot                 Lot?                @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  mother              Animal              @relation("BirthMother", fields: [motherId], references: [id], onDelete: Cascade)
+  father              Animal?             @relation("BirthFather", fields: [fatherId], references: [id], onDelete: SetNull)
+  user                User?               @relation(fields: [userId], references: [id], onDelete: SetNull, name: "RecordedByUser")
+  animalReproductions AnimalReproduction? @relation(fields: [animalReproductionId], references: [id], onDelete: SetNull)
+  newborns            Animal[]            @relation("BirthNewborns")
+  createdAt           DateTime            @default(now())
+}
+
+model Animal {
+  id        Int          @id @default(autoincrement())
+  name      String
+  farmId    Int
+  lotId     Int?
+  speciesId Int
+  breedId   Int?
+  photo     String?
+  barnId    Int?
+  penId     Int?
+  herdId    Int?
+  birthId   Int?
+  qrcode    String?      @unique
+  gender    Gender       @default(unknown)
+  birthDate DateTime?
+  weight    Float?
+  status    AnimalStatus @default(active)
+  createdAt DateTime     @default(now())
+
+  farm    Farm    @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  barn    Barn?   @relation(fields: [barnId], references: [id], onDelete: SetNull)
+  pen     Pen?    @relation(fields: [penId], references: [id], onDelete: SetNull)
+  herd    Herd?   @relation(fields: [herdId], references: [id], onDelete: SetNull)
+  lot     Lot?    @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  species Species @relation(fields: [speciesId], references: [id])
+  breed   Breed?  @relation(fields: [breedId], references: [id], onDelete: SetNull)
+  birth   Birth?  @relation("BirthNewborns", fields: [birthId], references: [id], onDelete: SetNull)
+
+  birthsAsMother     Birth[]             @relation("BirthMother")
+  birthsAsFather     Birth[]             @relation("BirthFather")
+  reproductionCycles ReproductionCycle[] @relation("AnimalCycles")
+  matingCycles       ReproductionCycle[] @relation("MaleCycles")
+  gestations         Gestation[]         @relation("AnimalGestations")
+  geneticPerformance GeneticPerformance?
+  pedigree           Pedigree?           @relation("AnimalPedigree")
+
+  // Pedigree relations (pour liens généalogiques)
+  pedigreeAsMother              Pedigree[] @relation("PedigreeMother")
+  pedigreeAsFather              Pedigree[] @relation("PedigreeFather")
+  pedigreeAsMaternalGrandmother Pedigree[] @relation("MaternalGrandmother")
+  pedigreeAsMaternalGrandfather Pedigree[] @relation("MaternalGrandfather")
+  pedigreeAsPaternalGrandmother Pedigree[] @relation("PaternalGrandmother")
+  pedigreeAsPaternalGrandfather Pedigree[] @relation("PaternalGrandfather")
+
+  healthRecords        AnimalHealthRecord[]
+  treatments           AnimalTreatment[]
+  vaccinations         AnimalVaccination[]
+  deaths               AnimalDeath[]
+  reproductionAsFemale AnimalReproduction[] @relation("ReproFemale")
+  reproductionAsMale   AnimalReproduction[] @relation("ReproMale")
+  weights              AnimalWeight[]
+  feedings             AnimalFeeding[]
+  movements            AnimalMovement[]
+  saleItems            SaleItem[]
+  animalTransfers      AnimalTransfer[]
+  productions          Production[]
+  feedingPlan          FeedingPlan[]
+}
+
+enum Gender {
+  male
+  female
+  unknown
+}
+
+enum AnimalStatus {
+  active
+  sold
+  dead
+  transferred
+}
+
+model AnimalHealthRecord {
+  id             Int      @id @default(autoincrement())
+  animalId       Int?
+  lotId          Int?
+  checkDate      DateTime
+  symptoms       String?  @db.Text
+  diagnosis      String?  @db.Text
+  treatment      String?  @db.Text
+  veterinarianId Int?
+  farmId         Int?
+  farm           Farm?    @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  animal         Animal?  @relation(fields: [animalId], references: [id], onDelete: SetNull)
+  lot            Lot?     @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  veterinarian   User?    @relation(fields: [veterinarianId], references: [id], onDelete: SetNull, name: "VetHealthRecords")
+}
+
+model AnimalTreatment {
+  id             Int       @id @default(autoincrement())
+  animalId       Int?
+  lotId          Int?
+  treatmentName  String?
+  medication     String?
+  dosage         String?
+  startDate      DateTime?
+  endDate        DateTime?
+  administeredBy Int?
+  farmId         Int?
+  createAt       DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  farm           Farm?     @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  animal         Animal?   @relation(fields: [animalId], references: [id], onDelete: SetNull)
+  lot            Lot?      @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  admin          User?     @relation(fields: [administeredBy], references: [id], onDelete: SetNull, name: "TreatmentByUser")
+}
+
+model AnimalVaccination {
+  id             Int       @id @default(autoincrement())
+  animalId       Int?
+  lotId          Int?
+  vaccineName    String?
+  dateGiven      DateTime?
+  nextDue        DateTime?
+  administeredBy Int?
+
+  animal Animal? @relation(fields: [animalId], references: [id], onDelete: SetNull)
+  lot    Lot?    @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  admin  User?   @relation(fields: [administeredBy], references: [id], onDelete: SetNull)
+}
+
+model AnimalDeath {
+  id          Int       @id @default(autoincrement())
+  animalId    Int?
+  lotId       Int?
+  dateOfDeath DateTime?
+  cause       String?
+  recordedBy  Int?
+  photo       String?
+
+  animal   Animal? @relation(fields: [animalId], references: [id], onDelete: SetNull)
+  lot      Lot?    @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  recorder User?   @relation(fields: [recordedBy], references: [id], onDelete: SetNull)
+}
+
+model AnimalReproduction {
+  id              Int       @id @default(autoincrement())
+  femaleId        Int?
+  maleId          Int?
+  matingDate      DateTime?
+  expectedBirth   DateTime?
+  actualBirthDate DateTime?
+  numberBorn      Int?
+  notes           String?
+
+  female Animal? @relation("ReproFemale", fields: [femaleId], references: [id], onDelete: SetNull)
+  male   Animal? @relation("ReproMale", fields: [maleId], references: [id], onDelete: SetNull)
+
+  births    Birth[]
+  createdAt DateTime @default(now())
+}
+
+model Production {
+  id           Int             @id @default(autoincrement())
+  farmId       Int
+  lotId        Int?
+  date         DateTime        @default(now())
+  category     ProductCategory
+  type         String
+  quantity     Float
+  animalId     Int?
+  unit         String
+  qualityGrade String?
+  notes        String?
+  userId       Int?
+  herdId       Int?
+  penId        Int?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  // saleItemId RETIRÉ — c'est SaleItem qui pointe vers Production
+  saleItems SaleItem[]
+
+  lot    Lot?    @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  animal Animal? @relation(fields: [animalId], references: [id], onDelete: SetNull)
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull, name: "ProductionByUser")
+  farm   Farm    @relation(fields: [farmId], references: [id])
+  herd   Herd?   @relation(fields: [herdId], references: [id], onDelete: SetNull)
+  pen    Pen?    @relation(fields: [penId], references: [id], onDelete: SetNull)
+}
+
+enum ProductCategory {
+  Product
+  byproduct
+}
+
+/////////////////////////
+// FINANCE / EXPENSES / SALES
+/////////////////////////
+enum ExpenseCategory {
+  FEED
+  VETERINARY
+  EQUIPMENT
+  MAINTENANCE
+  LABOR
+  FUEL
+  FERTILIZER
+  SEEDS
+  WATER
+  TRANSPORT
+  INSURANCE
+  TAXES
+  SUPPLIES
+  UTILITIES
+  MARKETING
+  MISC
+  OTHER
+}
+
+model Expense {
+  id            Int             @id @default(autoincrement())
+  farmId        Int
+  category      ExpenseCategory
+  amount        Float
+  taxAmount     Float?          @default(0)
+  totalAmount   Float
+  date          DateTime
+  paymentMethod PaymentMethod   @default(cash)
+  supplierId    Int?
+  invoiceNumber String?
+  notes         String?
+  isRecurring   Boolean         @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById Int?
+
+  farm      Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  supplier  Supplier? @relation(fields: [supplierId], references: [id])
+  createdBy User?     @relation(fields: [createdById], references: [id])
+
+  @@map("expenses")
+}
+
+enum SaleStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+model Sale {
+  id            Int           @id @default(autoincrement())
+  farmId        Int
+  date          DateTime
+  total         Float?        @default(0)
+  notes         String?
+  clientId      Int?
+  status        SaleStatus    @default(PENDING)
+  paymentMethod PaymentMethod @default(cash)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  farm      Farm       @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  client    Client?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  saleItems SaleItem[]
+  payments  Payment[]
+
+  @@index([farmId, date])
+  @@index([farmId, status])
+}
+
+model SaleItem {
+  id           Int             @id @default(autoincrement())
+  saleId       Int
+  productName  String // obligatoire
+  category     ProductCategory // copié depuis Production au moment de la vente
+  productType  String // copié depuis Production.Type
+  unit         String // copié depuis Production.unit
+  quantity     Float // Float, pas Int
+  unitPrice    Float
+  totalPrice   Float
+  discount     Float           @default(0)
+  animalId     Int? // @unique retiré
+  lotId        Int?
+  productionId Int? // lien optionnel vers la production source
+  description  String?
+  notes        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  sale       Sale        @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  lot        Lot?        @relation(fields: [lotId], references: [id], onDelete: SetNull)
+  animal     Animal?     @relation(fields: [animalId], references: [id], onDelete: SetNull)
+  production Production? @relation(fields: [productionId], references: [id], onDelete: SetNull)
+
+  @@index([saleId])
+}
+
+/////////////////////////
+// INVENTORY / FEED / EQUIPMENT
+/////////////////////////
+
+enum Unit {
+  KG
+  LITER
+  TON
+  BAG
+  PIECE
+}
+
+model Inventory {
+  id          Int               @id @default(autoincrement())
+  farmId      Int
+  name        String
+  category    InventoryCategory
+  sku         String?           @unique
+  quantity    Decimal           @db.Decimal(12, 3)
+  unit        String // KG, L, SAC, PIECE, TON, etc.
+  minQuantity Decimal?          @db.Decimal(12, 3)
+  unitPrice   Float? // Prix moyen
+  totalValue  Float? // Calculé : quantity * unitPrice
+
+  expiryDate DateTime?
+  location   String? // Ex: Grange A, Entrepôt 2, etc.
+  supplierId Int?
+  notes      String?
+  status     StockStatus @default(IN_STOCK)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  farm     Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  supplier Supplier? @relation(fields: [supplierId], references: [id])
+
+  movements     StockMovement[]
+  purchaseItems PurchaseItem[]
+  feedPurchases FeedPurchase[]
+  equipment     Equipment[] // Matériel d'élevage
+
+  @@map("inventory")
+}
+
+model StockMovement {
+  id               Int               @id @default(autoincrement())
+  inventoryId      Int
+  type             StockMovementType
+  quantity         Decimal           @db.Decimal(12, 3)
+  previousQuantity Decimal           @db.Decimal(12, 3)
+  newQuantity      Decimal           @db.Decimal(12, 3)
+
+  date      DateTime @default(now())
+  reference String? // N° facture, bon de sortie...
+  notes     String?
+  userId    Int?
+
+  inventory Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id])
+
+  @@index([inventoryId, date])
+  @@index([type])
+}
+
+enum InventoryCategory {
+  MEDICINE // Médicaments et vaccins
+  SUPPLEMENT // Compléments
+  FERTILIZER // Engrais
+  SEED // Semences
+  EQUIPMENT // Matériel d'élevage
+  TOOL // Outils
+  CHEMICAL // Produits chimiques
+  PACKAGING // Emballages
+  FUEL // Carburant
+  OTHER
+}
+
+enum StockMovementType {
+  PURCHASE
+  USAGE
+  ADJUSTMENT
+  TRANSFER
+  RETURN
+  WASTE
+}
+
+enum StockStatus {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  EXPIRED
+}
+
+model Supplier {
+  id       Int              @id @default(autoincrement())
+  category SupplierCategory
+  name     String
+  email    String?
+  phone    String?
+  farmId   Int?
+
+  farm Farm? @relation(fields: [farmId], references: [id])
+
+  purchases    Purchase[]
+  feedPurchase FeedPurchase[]
+  expenses     Expense[]
+  inventories  Inventory[]
+  feedStocks   FeedStock[]
+}
+
+enum SupplierCategory {
+  FEED
+  MEDICAL
+  EQUIPMENT
+  SERVICE
+  OTHER
+}
+
+model FeedPurchase {
+  id          Int     @id @default(autoincrement())
+  supplierId  Int
+  farmId      Int
+  itemName    String
+  quantity    Decimal @db.Decimal(10, 2)
+  unitPrice   Float?
+  totalAmount Float
+  inventoryId Int?
+
+  supplier  Supplier   @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  farm      Farm       @relation(fields: [farmId], references: [id])
+  inventory Inventory? @relation(fields: [inventoryId], references: [id], onDelete: SetNull) // ← relation inverse
+}
+
+// ─── Stocks d'Aliments ────────────────────────────────────────────────
+
+model FeedUsage {
+  id              Int      @id @default(autoincrement())
+  feedStockId     Int // Remplace feedStockId
+  lotId           Int
+  quantity        Decimal  @db.Decimal(12, 3)
+  date            DateTime
+  animalFeedingId Int?
+
+  feedStock     FeedStock      @relation(fields: [feedStockId], references: [id])
+  lot           Lot            @relation(fields: [lotId], references: [id])
+  animalFeeding AnimalFeeding? @relation(fields: [animalFeedingId], references: [id])
+}
+
+// ─── Plan des Rations ─────────────────────────────────────────────────
+
+model AnimalFeeding {
+  id            Int      @id @default(autoincrement())
+  animalId      Int
+  feedingPlanId Int // Remplace inventoryId
+  quantity      Decimal  @db.Decimal(12, 3)
+  unit          String
+  date          DateTime
+  lotId         Int
+  userId        Int
+
+  animal      Animal      @relation(fields: [animalId], references: [id])
+  feedingPlan FeedingPlan @relation(fields: [feedingPlanId], references: [id])
+  lot         Lot         @relation(fields: [lotId], references: [id])
+  user        User        @relation("FeedingByUser", fields: [userId], references: [id])
+  feedUsages  FeedUsage[]
+  feedStock   FeedStock?  @relation(fields: [feedStockId], references: [id])
+  feedStockId Int?
+}
+
+model FeedingPlan {
+  id                Int       @id @default(autoincrement())
+  animalId          Int?
+  quantity          Decimal   @db.Decimal(12, 3)
+  unit              String
+  frequency         Frequency
+  startDate         DateTime
+  endDate           DateTime?
+  farmId            Int
+  userId            Int
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  lotId             Int?
+  herdId            Int?
+  penId             Int?
+  lastDistributedAt DateTime?
+
+  lot Lot? @relation(fields: [lotId], references: [id])
+  pen Pen? @relation(fields: [penId], references: [id])
+
+  herd Herd? @relation(fields: [herdId], references: [id])
+
+  animal         Animal?         @relation(fields: [animalId], references: [id])
+  farm           Farm            @relation(fields: [farmId], references: [id])
+  user           User            @relation("InchargeByUser", fields: [userId], references: [id])
+  animalFeedings AnimalFeeding[]
+  feedStock      FeedStock?      @relation(fields: [feedStockId], references: [id])
+  feedStockId    Int?
+}
+
+model FeedStock {
+  id          Int           @id @default(autoincrement())
+  farmId      Int
+  name        String
+  category    FeedCategory? // Nouveau : meilleure organisation
+  quantity    Decimal       @db.Decimal(12, 3)
+  unit        String
+  minQuantity Decimal?      @db.Decimal(12, 3)
+  unitPrice   Decimal?      @db.Decimal(10, 2)
+  totalValue  Decimal?      @db.Decimal(12, 2)
+
+  expiryDate DateTime?
+  location   String?
+  supplierId Int?
+  sku        String?   @unique
+
+  status StockStatus @default(IN_STOCK)
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  farm     Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  supplier Supplier? @relation(fields: [supplierId], references: [id])
+
+  feedUsages     FeedUsage[]
+  animalFeedings AnimalFeeding[]
+  feedingPlans   FeedingPlan[]
+
+  @@map("feed_stock")
+}
+
+// ==================== Enums ====================
+
+enum FeedCategory {
+  CONCENTRATE // Concentré
+  FORAGE // Fourrage
+  SUPPLEMENT // Complément
+  MINERAL // Minéraux / Sel
+  SILAGE // Ensilage
+  OTHER
+}
+
+// ─── Enum ─────────────────────────────────────────────────────────────
+
+enum Frequency {
+  daily
+  weekly
+  custom
+}
+
+model EquipmentMaintenance {
+  id              Int      @id @default(autoincrement())
+  equipmentId     Int
+  farmId          Int
+  name            String
+  maintenanceDate DateTime
+  cost            Float?
+  notes           String?
+  userId          Int?
+
+  farm      Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull, name: "MaintenanceByUser")
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+}
+
+enum MaintenanceFrequency {
+  daily
+  weekly
+  monthly
+  quarterly
+  yearly
+  custom
+}
+
+model Equipment {
+  id                   Int                  @id @default(autoincrement())
+  farmId               Int
+  name                 String
+  description          String?
+  purchaseDate         DateTime?
+  inventoryId          Int? // ← retire @unique pour l'instant
+  status               EquipmentStatus      @default(operational)
+  value                Float?
+  maintenanceFrequency MaintenanceFrequency @default(daily)
+  createdAt            DateTime             @default(now())
+
+  farm                  Farm                   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  inventory             Inventory?             @relation(fields: [inventoryId], references: [id], onDelete: SetNull)
+  equipmentMaintenances EquipmentMaintenance[]
+}
+
+enum EquipmentStatus {
+  operational
+  underMaintenance
+  outOfService
+}
+
+/////////////////////////
+// TRANSFERS / MOVEMENTS
+/////////////////////////
+
+model AnimalTransfer {
+  id        Int      @id @default(autoincrement())
+  animalId  Int
+  fromLotId Int?
+  toLotId   Int?
+  date      DateTime
+  userId    Int?
+
+  animal  Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  fromLot Lot?   @relation("TransferSource", fields: [fromLotId], references: [id])
+  toLot   Lot?   @relation("TransferTarget", fields: [toLotId], references: [id])
+  user    User?  @relation(fields: [userId], references: [id], onDelete: SetNull, name: "TransferByUser")
+}
+
+model AnimalWeight {
+  id       Int      @id @default(autoincrement())
+  animalId Int
+  weight   Float
+  date     DateTime
+  userId   Int?
+
+  animal Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull, name: "RecorderWeights")
+}
+
+model AnimalMovement {
+  id       Int @id @default(autoincrement())
+  animalId Int
+
+  // 🟦 PEN
+  fromPenId Int?
+  toPenId   Int?
+
+  // 🟩 LOT
+  fromLotId Int?
+  toLotId   Int?
+
+  // 🟨 HERD
+  fromHerdId Int?
+  toHerdId   Int?
+
+  date      DateTime
+  movedById Int?
+
+  // Relations
+  animal Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  fromPen Pen? @relation("MovementFromPen", fields: [fromPenId], references: [id])
+  toPen   Pen? @relation("MovementToPen", fields: [toPenId], references: [id])
+
+  fromLot Lot? @relation("MovementFromLot", fields: [fromLotId], references: [id])
+
+  toLot Lot? @relation("MovementToLot", fields: [toLotId], references: [id])
+
+  fromHerd Herd? @relation("MovementFromHerd", fields: [fromHerdId], references: [id])
+
+  toHerd Herd? @relation("MovementToHerd", fields: [toHerdId], references: [id])
+
+  movedBy User? @relation("MovedBy", fields: [movedById], references: [id], onDelete: SetNull)
+}
+
+/////////////////////////
+// ALERTS / TASKS / REPORTS
+/////////////////////////
+
+model Alert {
+  id      Int         @id @default(autoincrement())
+  farmId  Int
+  title   String
+  message String
+  date    DateTime
+  status  AlertStatus @default(active)
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+}
+
+enum AlertStatus {
+  active
+  resolved
+}
+
+model FarmTask {
+  id          Int        @id @default(autoincrement())
+  farmId      Int
+  title       String
+  description String?
+  assignedTo  Int?
+  status      TaskStatus @default(pending)
+  dueDate     DateTime?
+
+  farm         Farm  @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  assignedUser User? @relation(fields: [assignedTo], references: [id], onDelete: SetNull, name: "AssignedTasks")
+}
+
+enum TaskStatus {
+  pending
+  inProgress
+  completed
+  cancelled
+}
+
+model Report {
+  id        Int      @id @default(autoincrement())
+  farmId    Int
+  title     String
+  content   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+}
+
+/////////////////////////
+// SAAS / SUBSCRIPTIONS / PLANS / API KEYS / BACKUPS / INVOICES
+/////////////////////////
+
+model Plan {
+  id            Int            @id @default(autoincrement())
+  name          String
+  price         Float
+  durationDays  Int
+  description   String?
+  billingCycle  BillingCycle
+  createdAt     DateTime       @default(now())
+  userLimit     Int?
+  storageLimit  Int?
+  animalLimit   Int?
+  subscriptions Subscription[]
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+model Subscription {
+  id             Int                @id @default(autoincrement())
+  organizationId Int
+  planId         Int
+  startDate      DateTime
+  endDate        DateTime
+  status         SubscriptionStatus @default(active)
+  renewalType    RenewalType
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan           Plan               @relation(fields: [planId], references: [id], onDelete: Cascade)
+  invoices       Invoice[]
+}
+
+enum SubscriptionStatus {
+  active
+  expired
+  cancelled
+}
+
+enum RenewalType {
+  AUTO
+  MANUAL
+}
+
+model ApiKey {
+  id             Int       @id @default(autoincrement())
+  organizationId Int
+  key            String
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Backup {
+  id             Int      @id @default(autoincrement())
+  organizationId Int
+  filePath       String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id             Int           @id @default(autoincrement())
+  organizationId Int?
+  subscriptionId Int
+  farmId         Int?
+  amount         Float
+  status         InvoiceStatus @default(pending)
+  paymentMethod  String?
+  currency       String
+  issuedAt       DateTime      @default(now())
+  dueAt          DateTime?
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  farm         Farm?         @relation(fields: [farmId], references: [id], onDelete: SetNull)
+}
+
+enum InvoiceStatus {
+  pending
+  paid
+  overdue
+}
+
+enum PaymentMethod {
+  card
+  mobile_money
+  orange_money
+  paypal
+  cash
+  others
+}
+
+enum PaymentStatus {
+  PENDING // en attente
+  SUCCESS // payé
+  FAILED // échec
+  CANCELLED // annulé
+  REFUNDED // remboursé
+}
+
+/////////////////////////
+// PAYMENTS
+/////////////////////////
+
+model Client {
+  id        Int      @id @default(autoincrement())
+  farmId    Int
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  createdAt DateTime @default(now())
+
+  sales Sale[]
+  farm  Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id             Int           @id @default(autoincrement())
+  organizationId Int?
+  farmId         Int?
+  saleId         Int?
+  purchaseId     Int?
+  amount         Float
+  currency       String        @default("F CFA")
+  method         PaymentMethod
+  status         PaymentStatus @default(PENDING)
+  reference      String? // ID transaction mobile money / PayPal, etc.
+  notes          String?
+  paidAt         DateTime      @default(now())
+  userId         Int? // utilisateur ayant enregistré le paiement
+
+  // Relations
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  farm         Farm?         @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  sale         Sale?         @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  purchase     Purchase?     @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  user         User?         @relation("PaymentByUser", fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model ReproductionCycle {
+  id       Int @id @default(autoincrement())
+  farmId   Int
+  animalId Int
+
+  cycleType CycleType
+  startDate DateTime
+  endDate   DateTime?
+
+  status CycleStatus @default(en_cours)
+
+  // Détails chaleur
+  heatIntensity Int? // 1-5
+  heatBehavior  String? // comportement observé
+
+  // Détails insémination
+  inseminationType InseminationType?
+  maleId           Int? // si accouplement naturel
+  semenBatch       String? // si IA
+  technicianId     Int? // vétérinaire/technicien
+
+  notes String? @db.Text
+
+  // Relations
+  farm       Farm    @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  animal     Animal  @relation("AnimalCycles", fields: [animalId], references: [id], onDelete: Cascade)
+  male       Animal? @relation("MaleCycles", fields: [maleId], references: [id], onDelete: SetNull)
+  technician User?   @relation("CycleTechnician", fields: [technicianId], references: [id], onDelete: SetNull)
+
+  gestation Gestation?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum CycleType {
+  chaleur // Détection de chaleur
+  insemination // Insémination effectuée
+  confirmation // Confirmation gestation (écho/palp)
+  echec // Cycle non fécond
+}
+
+enum CycleStatus {
+  en_cours
+  confirme
+  echec
+  termine
+}
+
+enum InseminationType {
+  naturelle
+  artificielle
+}
+
+// ==================== GESTATION ====================
+
+model Gestation {
+  id                  Int @id @default(autoincrement())
+  farmId              Int
+  animalId            Int @unique // Une femelle = une gestation active max
+  reproductionCycleId Int @unique
+
+  inseminationDate     DateTime
+  expectedDeliveryDate DateTime
+  actualDeliveryDate   DateTime?
+
+  status GestationStatus @default(en_attente)
+
+  // Suivi gestation
+  gestationDays      Int? // Calculé automatiquement
+  confirmationDate   DateTime? // Date écho/palp
+  confirmationMethod ConfirmationMethod?
+  numberOfOffspring  Int? // Nombre prévu (écho) ou réel
+
+  // Complications
+  complications String?   @db.Text
+  abortionDate  DateTime?
+  abortionCause String?
+
+  // Monitoring
+  lastCheckDate  DateTime?
+  veterinarianId Int?
+
+  notes String? @db.Text
+
+  // Relations
+  farm              Farm              @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  animal            Animal            @relation("AnimalGestations", fields: [animalId], references: [id], onDelete: Cascade)
+  reproductionCycle ReproductionCycle @relation(fields: [reproductionCycleId], references: [id], onDelete: Cascade)
+  veterinarian      User?             @relation("GestationVet", fields: [veterinarianId], references: [id], onDelete: SetNull)
+
+  birth    Birth?
+  checkups GestationCheckup[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum GestationStatus {
+  en_attente // Confirmée mais pas encore vérifiée
+  confirmee // Confirmée par écho/palp
+  en_cours // En cours normal
+  terminee // Mise-bas réussie
+  avortement // Avortement/perte
+}
+
+enum ConfirmationMethod {
+  echographie
+  palpation
+  test_sanguin
+  observation
+}
+
+// ==================== SUIVI GESTATION ====================
+
+model GestationCheckup {
+  id          Int @id @default(autoincrement())
+  gestationId Int
+
+  checkDate    DateTime
+  gestationDay Int // Jour de gestation
+
+  // Observations
+  motherWeight    Float?
+  motherCondition Int? // 1-5 état corporel
+  fetalHeartbeat  Boolean?
+  fetalMovement   Boolean?
+  complications   String?
+
+  veterinarianId Int?
+  notes          String? @db.Text
+
+  // Relations
+  gestation    Gestation @relation(fields: [gestationId], references: [id], onDelete: Cascade)
+  veterinarian User?     @relation("CheckupVet", fields: [veterinarianId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+}
+
+// ==================== PERFORMANCE GÉNÉTIQUE ====================
+
+model GeneticPerformance {
+  id Int @id @default(autoincrement())
+
+  farmId Int
+
+  animalId Int @unique // Relation 1-à-1 avec l'animal
+
+  // Indicateurs de croissance
+
+  growthRate Float?
+
+  birthWeight Float? // Poids à la naissance
+
+  weaningWeight Float? // Poids au sevrage
+
+  // Scores de sélection (Index)
+
+  prolificityScore Float? // Capacité à produire des portées nombreuses
+
+  maternalInstinct Int? // Note de 1 à 10 sur le soin aux petits
+
+  diseaseResistance Int? // Score de rusticité / résistance
+
+  // Données généalogiques avancées
+
+  inbreedingCoeff Float? // Coefficient de consanguinité (ex: 0.05 pour 5%)
+
+  updatedAt DateTime @updatedAt
+
+  animal Animal @relation(fields: [animalId], references: [id], onDelete: Cascade)
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+}
+
+// ==================== PEDIGREE (Arbre généalogique) ====================
+
+model Pedigree {
+  id                    Int   @id @default(autoincrement())
+  animalId              Int   @unique
+  motherId              Int?
+  fatherId              Int?
+  maternalGrandmotherId Int?
+  maternalGrandfatherId Int?
+  paternalGrandmotherId Int?
+  paternalGrandfatherId Int?
+  generation4Ids        Json? // IDs des arrière-grands-parents (4ème génération) sous forme de JSON
+
+  // Métadonnées
+  completeness Int? // % d'informations connues (0-100)
+  verified     Boolean @default(false)
+
+  // Relations
+  animal              Animal  @relation("AnimalPedigree", fields: [animalId], references: [id], onDelete: Cascade)
+  mother              Animal? @relation("PedigreeMother", fields: [motherId], references: [id], onDelete: SetNull)
+  father              Animal? @relation("PedigreeFather", fields: [fatherId], references: [id], onDelete: SetNull)
+  maternalGrandmother Animal? @relation("MaternalGrandmother", fields: [maternalGrandmotherId], references: [id], onDelete: SetNull)
+  maternalGrandfather Animal? @relation("MaternalGrandfather", fields: [maternalGrandfatherId], references: [id], onDelete: SetNull)
+  paternalGrandmother Animal? @relation("PaternalGrandmother", fields: [paternalGrandmotherId], references: [id], onDelete: SetNull)
+  paternalGrandfather Animal? @relation("PaternalGrandfather", fields: [paternalGrandfatherId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/////////////////////////
+// SETTINGS & CONFIGURATION
+/////////////////////////
+
+model Settings {
+  id             Int  @id @default(autoincrement())
+  organizationId Int?
+  farmId         Int? @unique // Une ferme = un jeu de paramètres
+
+  // === Configuration Générale ===
+  currency   String @default("XOF") // F CFA
+  language   String @default("fr") // fr, en, etc.
+  dateFormat String @default("DD/MM/YYYY")
+  timezone   String @default("Africa/Dakar")
+
+  // === Unités de Mesure ===
+  weightUnit String @default("kg") // kg, g, lb
+  volumeUnit String @default("L") // L, ml
+  areaUnit   String @default("ha") // ha, m², acres
+
+  // === Paramètres d'Élevage ===
+  defaultSpeciesId  Int? // Espèce par défaut
+  defaultBreedId    Int?
+  heatDetectionDays Int  @default(21) // Cycle moyen de chaleur
+  gestationDuration Int  @default(280) // Jours de gestation (bovins ~280)
+
+  // === Notifications ===
+  enableEmailAlerts Boolean @default(true)
+  enableSmsAlerts   Boolean @default(false)
+  lowStockThreshold Decimal @default(10) @db.Decimal(12, 2) // Seuil alerte stock
+
+  // === Finance ===
+  taxRate              Float?        @default(0) // Taux de TVA par défaut
+  defaultPaymentMethod PaymentMethod @default(cash)
+
+  // === Apparence & UI ===
+  primaryColor String? @default("#1e40af")
+  logoUrl      String?
+  farmName     String?
+
+  // === Métadonnées ===
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  farm         Farm?         @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, farmId])
+}

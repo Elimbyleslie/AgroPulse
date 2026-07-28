@@ -1,5 +1,5 @@
 import { ProductCategory } from "../../generated/prisma/enums.js";
-
+import {SaleItem} from "../typages/expenseSale.js";
 
 export interface ProductionCreateInput {
   farmId: number;
@@ -8,14 +8,14 @@ export interface ProductionCreateInput {
   herdId?: number | null;
   penId?: number | null;
   date?: string | Date;
-  Category: ProductCategory;
-  Type: string;
+  category: ProductCategory;
+  type: string;
   quantity: number;
   unit: string;
   qualityGrade?: string | null;
   notes?: string | null;
   userId?: number | null;
-  saleItemId?: number | null;
+  saleItems?: SaleItem[];
 }
 
 export interface ProductionUpdateInput {
@@ -25,14 +25,14 @@ export interface ProductionUpdateInput {
   herdId?: number | null;
   penId?: number | null;
   date?: string | Date;
-  Category?: ProductCategory;
-  Type?: string;
+  category?: ProductCategory;
+  type?: string;
   quantity?: number;
   unit?: string;
   qualityGrade?: string | null;
   notes?: string | null;
   userId?: number | null;
-  saleItemId?: number | null;
+  saleItems?: SaleItem[];
 }
 
 

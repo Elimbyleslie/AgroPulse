@@ -91,6 +91,7 @@ export const getAllBarns = async (
         farm: true,
         pens: true,
         lots: true,
+        herds:true
       },
     });
 

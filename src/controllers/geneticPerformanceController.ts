@@ -3,6 +3,33 @@ import { Request, Response, NextFunction } from 'express';
 import ResponseApi from '../helpers/response.js';
 import prisma from '../models/prismaClient.js';
 
+interface GeneticPerformanceBaseBody {
+  growthRate?: number | string;
+  birthWeight?: number | string;
+  weaningWeight?: number | string;
+  prolificityScore?: number | string;
+  maternalInstinct?: number | string;
+  diseaseResistance?: number | string;
+  inbreedingCoeff?: number | string;
+}
+
+interface GeneticPerformanceCreateBody extends GeneticPerformanceBaseBody {
+  farmId: number | string;
+  animalId: number | string;
+}
+
+interface GeneticPerformanceUpdateBody extends GeneticPerformanceBaseBody {}
+
+interface GeneticPerformanceQueryParams {
+  farmId?: string | number;
+  page?: string | number;
+  limit?: string | number;
+}
+
+interface BirthWithNumberBorn {
+  numberBorn?: number | null;
+}
+
 // ==================== LIST GENETIC PERFORMANCES ====================
 export const listGeneticPerformances = async (
   req: Request,
