@@ -783,7 +783,6 @@ model SaleItem {
   saleId       Int
   productName  String // obligatoire
   category     ProductCategory // copié depuis Production au moment de la vente
-  productType  String // copié depuis Production.Type
   unit         String // copié depuis Production.unit
   quantity     Float // Float, pas Int
   unitPrice    Float

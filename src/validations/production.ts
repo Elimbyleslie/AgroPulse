@@ -11,11 +11,11 @@ export const createProductionSchema = yup.object({
 
   date: yup.date().nullable(),
 
-  Category: yup.mixed<ProductCategory>()
+  category: yup.mixed<ProductCategory>()
     .oneOf(Object.values(ProductCategory), "Category invalide")
     .required(),
 
-  Type: yup.string().trim().min(2, "Le type doit faire au moins 2 caractères").required(),
+  type: yup.string().trim().min(2, "Le type doit faire au moins 2 caractères").required(),
   quantity: yup.number().positive("La quantité doit être positive").required(),
   unit: yup.string().trim().min(1).required("L'unité est requise"),
 

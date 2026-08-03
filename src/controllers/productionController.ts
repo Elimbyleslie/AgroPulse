@@ -36,8 +36,8 @@ export const createProduction = async (
         herdId: herdId ? Number(herdId) : null,
         penId: penId ? Number(penId) : null,
         date: date ? new Date(date) : new Date(),
-        category: category,
-        type: type,
+        category,
+        type,
         quantity: Number(quantity),
         unit,
         qualityGrade: qualityGrade || null,
@@ -93,8 +93,8 @@ export const updateProduction = async (
     ...(herdId !== undefined && { herdId: herdId ? Number(herdId) : null }),
     ...(penId !== undefined && { penId: penId ? Number(penId) : null }),
     ...(date !== undefined && { date: date ? new Date(date) : new Date() }),
-    ...(category !== undefined && { category: category }),   // ← minuscule
-    ...(type !== undefined && { type: type }),               // ← minuscule
+    ...(category !== undefined && { category }),   // ← minuscule
+    ...(type !== undefined && { type }),               // ← minuscule
     ...(quantity !== undefined && { quantity: Number(quantity) }),
     ...(unit !== undefined && { unit }),
     ...(qualityGrade !== undefined && { qualityGrade: qualityGrade || null }),

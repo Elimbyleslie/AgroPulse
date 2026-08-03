@@ -92,17 +92,12 @@ export interface SaleItem {
   saleId: number;
   productName: string;
   category?: ProductCategory;
-  productType?: string;
-
   unit?: string;
-
   quantity: number;
-
   unitPrice: number;
   totalPrice: number;
   discount?: number;
   productionId?: number;
-
   lotId?: number;
   animalId?: number;
 

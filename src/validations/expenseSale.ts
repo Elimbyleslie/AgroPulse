@@ -1,5 +1,5 @@
 import * as Yup from "yup";
-import { ExpenseCategory, PaymentMethod } from "../typages/expenseSale.js";
+import { ExpenseCategory, PaymentMethod ,ProductCategory} from "../typages/expenseSale.js";
 
 export const createExpenseSchema = Yup.object().shape({
   farmId: Yup.number()
@@ -138,6 +138,9 @@ export const createSaleItemSchema = Yup.object().shape({
     .nullable()
     .optional(),
 
+category: Yup.mixed<ProductCategory>()
+  .oneOf(Object.values(ProductCategory), "Catégorie invalide")
+  .required("La catégorie est obligatoire"),
   lotId: Yup.number()
     .positive()
     .nullable()
@@ -170,4 +173,7 @@ export const updateSaleItemSchema = createSaleItemSchema.shape({
   quantity: Yup.number().positive().optional(),
   unitPrice: Yup.number().positive().optional(),
   totalPrice: Yup.number().positive().optional(),
+  category: Yup.mixed<ProductCategory>()
+  .oneOf(Object.values(ProductCategory), "Catégorie invalide")
+  .optional(),
 });
