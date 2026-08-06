@@ -1,5 +1,5 @@
 import {
-  getAllInventories,
+  getAllInventory,
   getInventoryById,
   createInventory,
   updateInventory,
@@ -28,7 +28,7 @@ router.get(
   "/",
   authenticate,
   authorizePermission([Permission.READ_INVENTORY]),
-  getAllInventories,
+  getAllInventory,
 );
 router.get(
   "/:id",

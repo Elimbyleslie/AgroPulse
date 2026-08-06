@@ -1,30 +1,47 @@
-import * as yup from "yup";
+import * as Yup from "yup";
+import { EquipmentStatus ,MaintenanceFrequency } from "../typages/equipement.js";
 
-export const createEquipementSchema = yup.object().shape({
-  name: yup.string().required("Name is required"),
-  farmId: yup.number().required("Farm ID is required"),
-  value: yup
-    .number()
-    .min(0, "Cost must be a positive number")
-    .required("Cost is required"),
-  description: yup.string().optional(),
-  purchaseDate: yup.date().required("Purchase date is required"),
-  status: yup
-    .string()
-    .oneOf(["operational", "under_maintenance", "out_of_order"])
-    .required("Status is required"),
-  maintenanceDate: yup.date().optional(),
+const forceNumber = (value: any) => {
+  if (value === "" || value === null || value === undefined) return null;
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? value : parsed;
+};
+
+export const createEquipmentSchema = Yup.object().shape({
+  farmId: Yup.number()
+    .transform(forceNumber)
+    .required("La ferme est obligatoire"),
+
+  name: Yup.string()
+    .min(2, "Le nom doit contenir au moins 2 caractères")
+    .max(150, "Le nom est trop long")
+    .required("Le nom de l'équipement est obligatoire"),
+
+  description: Yup.string().max(500, "La description est trop longue").nullable(),
+
+  purchaseDate: Yup.date()
+    .nullable()
+    .typeError("Date d'achat invalide"),
+
+  inventoryId: Yup.number()
+    .transform(forceNumber)
+    .nullable(),
+
+  status: Yup.mixed<EquipmentStatus>()
+    .oneOf(Object.values(EquipmentStatus), "Statut d'équipement invalide")
+    .default(EquipmentStatus.operational),
+
+  value: Yup.number()
+    .transform(forceNumber)
+    .min(0, "La valeur ne peut pas être négative")
+    .nullable(),
+
+  maintenanceFrequency: Yup.mixed<MaintenanceFrequency>()
+    .oneOf(Object.values(MaintenanceFrequency), "Fréquence de maintenance invalide")
+    .default(MaintenanceFrequency.monthly),
 });
 
-export const updateEquipementSchema = yup.object().shape({
-  name: yup.string().optional(),
-  farmId: yup.number().optional(),
-  value: yup.number().min(0, "Cost must be a positive number").optional(),
-  description: yup.string().optional(),
-  purchaseDate: yup.date().optional(),
-  status: yup
-    .string()
-    .oneOf(["operational", "under_maintenance", "out_of_order"])
-    .optional(),
-  maintenanceDate: yup.date().optional(),
+export const updateEquipmentSchema = createEquipmentSchema.clone().shape({
+  name: Yup.string().min(2).max(150).optional(),
+  farmId: Yup.number().transform(forceNumber).optional(),
 });

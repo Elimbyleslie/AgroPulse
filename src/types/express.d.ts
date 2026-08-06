@@ -8,6 +8,8 @@ declare global {
       name?: string;
       status?: string;
       roles: string[];
+      defaultFarmId?: number;
+      defaultOrganizationId?: number;
     }
   }
 }

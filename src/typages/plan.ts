@@ -1,5 +1,13 @@
-import { BillingCycle } from "../../generated/prisma/enums";
+export enum BillingCycle {
+  MONTHLY = "MONTHLY",
+  YEARLY = "YEARLY",
+} 
 
+export enum UnitStorage {
+  MO = "MO",
+  GO = "GO",
+  TO = "TO",
+}
 export interface Plan {
   id: number;
   name: string;
@@ -9,5 +17,7 @@ export interface Plan {
   billingCycle: BillingCycle;
   userLimit: number;
   storageLimit: number;
+  farmLimit: number;  
   animalLimit: number;
+  unitStorage: UnitStorage;
 }

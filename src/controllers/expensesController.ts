@@ -1,61 +1,112 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
-import { Expense } from "../typages/expenseSale.js";
+import { Expense , ExpenseCategory, PaymentMethod } from "../typages/expenseSale.js";
 
 // CREATE
+// CREATE - expensesController.ts
 export const createExpense = async (
   req: Request<{}, {}, Expense>,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
-    const expense = await prisma.expense.create({ data: req.body });
-    return ResponseApi.success(res, "Dépense créée", 201, expense);
+    console.log("[Backend] Données reçues dans req.body :", req.body);
+
+    const { notes, date, amount, farmId, category, supplierId, paymentMethod, ...rest } = req.body;
+
+    if (!category) {
+      return ResponseApi.error(res, "Le champ 'category' est obligatoire (ex: FEED, VET, MAINTENANCE...)", 400);
+    }
+
+    const expenseData = {
+      notes: notes || "",
+      date: date ? new Date(date) : new Date(),
+      amount: Number(amount),
+      farmId: Number(farmId),
+      category,                    // ExpenseCategory enum
+      supplierId: supplierId ? Number(supplierId) : null,
+      paymentMethod: paymentMethod || "CASH",
+      ...rest
+    };
+
+    const expense = await prisma.expense.create({
+      data: expenseData,
+      include: {
+        farm: true,
+        supplier: true,
+        createdBy: true,
+      },
+    });
+
+    return ResponseApi.success(res, "Dépense créée avec succès", 201, expense);
   } catch (error) {
     next(error);
   }
 };
 
-// GET ALL avec pagination et filtre par farmId et categoryId
+// GET ALL - avec pagination + filtres
 export const getAllExpenses = async (
   req: Request<
     {},
     {},
     {},
-    { farmId?: string; categoryId?: string; page?: string; limit?: string }
+    {
+      farmId?: string;
+      category?: ExpenseCategory;
+      startDate?: string;
+      endDate?: string;
+      paymentMethod?: PaymentMethod;
+      page?: string;
+      limit?: string;
+    }
   >,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
-    const { farmId, categoryId } = req.query;
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const { farmId, category, startDate, endDate, paymentMethod, page, limit } = req.query;
+
+    const currentPage = Number(page) || 1;
+    const take = Number(limit) || 10;
+    const skip = (currentPage - 1) * take;
 
     const where: any = {};
+
     if (farmId) where.farmId = Number(farmId);
-    if (categoryId) where.categoryId = Number(categoryId);
+    if (category) where.category = category;
+    if (paymentMethod) where.paymentMethod = paymentMethod;
 
-    const expenses = await prisma.expense.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { date: "desc" },
-      include: { farm: true, category: true },
-    });
+    // Filtre par plage de dates
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) where.date.gte = new Date(startDate);
+      if (endDate) where.date.lte = new Date(endDate);
+    }
 
-    const totalItems = await prisma.expense.count({ where });
+    const [expenses, totalItems] = await Promise.all([
+      prisma.expense.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { date: "desc" },
+        include: {
+          farm: { select: { id: true, name: true } },
+          supplier: { select: { id: true, name: true } },
+          createdBy: { select: { id: true, name: true } },
+        },
+      }),
+      prisma.expense.count({ where }),
+    ]);
 
     return ResponseApi.success(res, "Liste des dépenses récupérée", 200, {
       expenses,
       pagination: {
-        currentPage: page,
-        previousPage: page > 1 ? page - 1 : null,
-        nextPage: page * limit < totalItems ? page + 1 : null,
+        currentPage,
+        previousPage: currentPage > 1 ? currentPage - 1 : null,
+        nextPage: currentPage * take < totalItems ? currentPage + 1 : null,
         totalItems,
-        totalPage: Math.ceil(totalItems / limit),
+        totalPages: Math.ceil(totalItems / take),
       },
     });
   } catch (error) {
@@ -67,14 +118,22 @@ export const getAllExpenses = async (
 export const getExpenseById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     const expense = await prisma.expense.findUnique({
       where: { id: Number(req.params.id) },
-      include: { farm: true, category: true },
+      include: {
+        farm: true,
+        supplier: true,
+        createdBy: true,
+      },
     });
-    if (!expense) return ResponseApi.error(res, "Dépense non trouvée", 404);
+
+    if (!expense) {
+      return ResponseApi.error(res, "Dépense non trouvée", 404);
+    }
+
     return ResponseApi.success(res, "Dépense récupérée", 200, expense);
   } catch (error) {
     next(error);
@@ -85,17 +144,24 @@ export const getExpenseById = async (
 export const updateExpense = async (
   req: Request<{ id: string }, {}, Partial<Expense>>,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     const updated = await prisma.expense.update({
       where: { id: Number(req.params.id) },
       data: req.body,
+      include: {
+        farm: true,
+        supplier: true,
+        createdBy: true,
+      },
     });
-    return ResponseApi.success(res, "Dépense mise à jour", 200, updated);
+
+    return ResponseApi.success(res, "Dépense mise à jour avec succès", 200, updated);
   } catch (error: any) {
-    if (error.code === "P2025")
+    if (error.code === "P2025") {
       return ResponseApi.error(res, "Dépense non trouvée", 404);
+    }
     next(error);
   }
 };
@@ -104,16 +170,18 @@ export const updateExpense = async (
 export const deleteExpense = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     const deleted = await prisma.expense.delete({
       where: { id: Number(req.params.id) },
     });
-    return ResponseApi.success(res, "Dépense supprimée", 200, deleted);
+
+    return ResponseApi.success(res, "Dépense supprimée avec succès", 200, deleted);
   } catch (error: any) {
-    if (error.code === "P2025")
+    if (error.code === "P2025") {
       return ResponseApi.error(res, "Dépense non trouvée", 404);
+    }
     next(error);
   }
 };

@@ -3,7 +3,10 @@ export interface User {
   name: string;
   password: string;
   email: string;
+  onboardingComplete: boolean;
   photo: string;
   userRole: string;
   status: string;
+  defaultFarmId?: number;
+  defaultOrganizationId?: number;
 }

@@ -37,7 +37,6 @@ export const getAllAnimalVaccinations = async (
 ) => {
   try {
     const { animalId, lotId } = req.query;
-
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const offset = (page - 1) * limit;
@@ -49,12 +48,15 @@ export const getAllAnimalVaccinations = async (
     const vaccinations = await prisma.animalVaccination.findMany({
       skip: offset,
       take: limit,
-      where,
+      where:{
+      animal: {farmId : req.user?.defaultFarmId},
+      },
       orderBy: { dateGiven: "desc" },
       include: {
         animal: true,
         lot: true,
         admin: true,
+        
       },
     });
 

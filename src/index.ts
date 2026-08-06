@@ -18,6 +18,9 @@ import router from "./routers/index.js";
 import { errorHandler, notFound } from "./middlewares/errorHandle.js";
 import passport from "passport";
 import "./config/passport.js";
+import {startAlertCron} from "./cron/alerts.js";
+
+
 
 dotenv.config();
 
@@ -27,7 +30,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const uploadsPath = path.resolve(__dirname, "..", "..", "uploads");
-console.log("📂 Dossier uploads servi depuis :", uploadsPath);
 app.use("/uploads", express.static(uploadsPath));
 // =====================
 // Middlewares globaux
@@ -86,11 +88,16 @@ app.use("/api/dashboard/status", getDashboardStatus);
 // =====================
 
 app.use("/api/organizations", router.organization);
-app.use("/api/plan", router.plan);
+app.use("/api/plans", router.plan);
 app.use("/api/audit", router.audit);
 app.use("/api/APIKey", router.apiKeys);
 app.use("/api/users", router.user);
 app.use("/api/subscriptions", router.subscription);
+app.use("/api/clients", router.client);
+app.use("/api/settings", router.settings);
+app.use("/api/invoices", router.invoice);
+// app.ts / index.ts
+app.use("/api", router.invitation); 
 
 // =====================
 // Routes protégées par authentification et permission
@@ -99,7 +106,7 @@ app.use("/api/subscriptions", router.subscription);
 // Animaux
 app.use("/api/animals", router.animal);
 app.use("/api/births", router.birth);
-app.use("/api/animal-reproductions", router.animalReproduction);
+app.use("/api/  ", router.animalReproduction);
 app.use("/api/reproductions", router.reproductionBirth);
 app.use("/api/animal-health", router.AnimalHealthRecord);
 app.use("/api/animal-treatments", router.AnimalTreatment);
@@ -110,9 +117,21 @@ app.use("/api/animal-weights", router.AnimalWeight);
 app.use("/api/animal-movements", router.AnimalMovement);
 app.use("/api/animal-feedings", router.animalFeeding);
 
+//reproduction
+app.use("/api/reproduction-cycles", router.reproductionCycle);
+app.use("/api/gestation-checkups", router.gestationCheckup);
+app.use("/api/reproduction-with-birth", router.reproductionBirth);
+
+// Tâches & performances
+app.use("/api/farmtasks", router.farmtask);
+
+// Généalogie & performance génétique
+app.use("/api/pedigrees", router.pedigree);
+app.use("/api/genetic-performances", router.geneticPerformance);
+app.use("/api/gestations", router.gestation);
+
 // Fermes & structures
 app.use("/api/farms", router.farm);
-app.use("/api/FarmTasks", router.farmtask);
 app.use("/api/barns", router.barn);
 app.use("/api/pens", router.pen);
 
@@ -123,7 +142,6 @@ app.use("/api/herds", router.herd);
 app.use("/api/lots", router.lot);
 
 // Finances
-app.use("/api/expense-categories", router.expenseCategory);
 app.use("/api/expenses", router.expense);
 app.use("/api/sales", router.sale);
 app.use("/api/sale-items", router.saleItems);
@@ -137,16 +155,25 @@ app.use("/api/equipment-maintenances", router.equipmentMaintenance);
 app.use("/api/equipments", router.equipment);
 
 // Stock
-app.use("/api/Feedstocks", router.feedstock);
 app.use("/api/FeedUsages", router.feedUsage);
+app.use("/api/feedingPlan", router.feedingPlan);
 app.use("/api/inventories", router.inventory);
+app.use("/api/feedStocks", router.feedStock);
 app.use("/api/Suppliers", router.supplier);
 app.use("/api/FeedPurchases", router.feedPurchase);
+app.use("/api/stock-movements", router.stockMovement);
 
 // Notifications
 app.use("/api/notifications", router.notifications);
 app.use("/api/alerts", router.alert);
 
+//_role_permission_______________
+app.use("/api/user-Roles",router.userRole),
+app.use("/api/role-Permissions",router.rolePermission),
+app.use("/api/roles", router.role),
+app.use("/api/permissions",router.permission),
+app.use("/api/activity-logs", router.activityLog);
+app.use("/api/farm-users", router.farmUser);
 // =====================
 // Errors
 // =====================
@@ -166,3 +193,5 @@ app.listen(PORT, () => {
   console.log(`📡 API on http://localhost:${PORT}/api`);
   console.log("=======================================");
 });
+
+startAlertCron();

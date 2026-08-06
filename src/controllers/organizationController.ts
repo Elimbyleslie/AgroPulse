@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 import { Organization } from "../typages/organization.js";
-import { assignOrgOwnerRole } from "./AssignRole.js";
+import { createOrgAndAssignRole } from "./AssignRole.js";
 // ➕ Créer une organisation
 export const createOrganization = async (
   req: Request<any, any, Organization>,
@@ -11,6 +11,7 @@ export const createOrganization = async (
   try {
     const { name, address, ownerName, email, phone } = req.body;
 
+    // 1. Validations de base
     if (!name || !ownerName) {
       return ResponseApi.error(res, "Le nom et l'ownerName sont requis", 400);
     }
@@ -19,39 +20,55 @@ export const createOrganization = async (
       return ResponseApi.error(res, "Utilisateur non authentifié", 401);
     }
 
+    // 2. Vérification d'existence
     const existingOrganization = await prisma.organization.findFirst({
-      where: { 
+      where: {
         name,
-        ownerId: req.user.id // ← Vérifier uniquement pour cet utilisateur
+        ownerId: req.user.id,
       },
     });
-    
+
     if (existingOrganization) {
-      return ResponseApi.error(res, "Vous avez déjà une organisation avec ce nom", 400);
+      return ResponseApi.error(
+        res,
+        "Vous avez déjà une organisation avec ce nom",
+        400,
+      );
     }
 
-    const organization = await prisma.organization.create({
-      data: {
-        name,
-        ownerId: req.user.id, // ✅ Utiliser req.user.id directement
-        address,
-        ownerName,
-        email,
-        phone,
-      },
+    // 3. APPEL UNIQUE AU SERVICE (Il crée l'org ET assigne le rôle en un seul bloc)
+    const organization = await createOrgAndAssignRole(req.user.id, {
+      name,
+      address,
+      ownerName,
+      email,
+      phone,
     });
 
-    await assignOrgOwnerRole(req.user.id, organization.id);
+    // Ne mettre à jour que si pas encore de ferme par défaut
+    const currentUser = await prisma.user.findUnique({
+      where: { id: req.user?.id },
+      select: { defaultOrganizationId: true },
+    });
+
+    if (!currentUser?.defaultOrganizationId) {
+      await prisma.user.update({
+        where: { id: req.user?.id },
+        data: {
+          defaultOrganizationId: organization.id,
+        },
+      });
+    }
 
     return ResponseApi.success(
       res,
-      "Organisation créée avec succès",
+      "Organisation créée avec succès et rôle assigné",
       201,
       organization,
     );
   } catch (error) {
     console.error("Erreur création organisation:", error);
-    return ResponseApi.error(res, "Erreur serveur", 500);
+    return ResponseApi.error(res, "Erreur serveur lors de la création", 500);
   }
 };
 
@@ -138,7 +155,7 @@ export const getOrganizationById = async (req: Request, res: Response) => {
     }
 
     const organization = await prisma.organization.findFirst({
-      where: { 
+      where: {
         id: Number(id),
         ownerId: req.user.id, // ✅ Vérifier que c'est bien son organisation
       },
@@ -152,9 +169,9 @@ export const getOrganizationById = async (req: Request, res: Response) => {
 
     if (!organization) {
       return ResponseApi.error(
-        res, 
-        "Organisation non trouvée ou vous n'avez pas accès", 
-        404
+        res,
+        "Organisation non trouvée ou vous n'avez pas accès",
+        404,
       );
     }
 
@@ -196,9 +213,9 @@ export const updateOrganization = async (req: Request, res: Response) => {
 
     if (!existingOrg) {
       return ResponseApi.error(
-        res, 
-        "Organisation non trouvée ou vous n'avez pas le droit de la modifier", 
-        403
+        res,
+        "Organisation non trouvée ou vous n'avez pas le droit de la modifier",
+        403,
       );
     }
 
@@ -245,9 +262,9 @@ export const deleteOrganization = async (req: Request, res: Response) => {
 
     if (!existingOrg) {
       return ResponseApi.error(
-        res, 
-        "Organisation non trouvée ou vous n'avez pas le droit de la supprimer", 
-        403
+        res,
+        "Organisation non trouvée ou vous n'avez pas le droit de la supprimer",
+        403,
       );
     }
 
@@ -262,8 +279,10 @@ export const deleteOrganization = async (req: Request, res: Response) => {
   }
 };
 
-
-export const getAllOrganizationsForSuperAdmin = async (req: Request, res: Response) => {
+export const getAllOrganizationsForSuperAdmin = async (
+  req: Request,
+  res: Response,
+) => {
   try {
     // Pagination
     const page = Number(req.query.page) || 1;

@@ -21,18 +21,28 @@ router.post(
   validator(createFarmSchema),
   createFarm,
 );
+
 router.get(
   "/",
   authenticate,
   authorizePermission([Permission.READ_FARM]),
   getAllFarm,
 );
+
+router.get(
+  "/myfarms",
+  authenticate,
+  authorizePermission([Permission.READ_FARM]),
+  getMyFarms,
+);
+
 router.get(
   "/:id",
   authenticate,
   authorizePermission([Permission.READ_FARM]),
   getFarmById,
 );
+
 router.put(
   "/:id",
   authenticate,
@@ -40,17 +50,12 @@ router.put(
   validator(updateFarmSchema),
   updateFarm,
 );
+
 router.delete(
   "/:id",
   authenticate,
   authorizePermission([Permission.DELETE_FARM]),
   deleteFarm,
-);
-router.get(
-  "/myfarms",
-  authenticate,
-  authorizePermission([Permission.READ_FARM]),
-  getMyFarms,
 );
 
 export default router;

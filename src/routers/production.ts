@@ -5,6 +5,7 @@ import {
   getProductionById,
   updateProduction,
   deleteProduction,
+  getProductionStats
 } from "../controllers/productionController.js";
 
 import {
@@ -31,6 +32,13 @@ router.get(
   getAllProductions,
 );
 router.get(
+  "/stats",
+  authenticate,
+  authorizePermission([Permission.READ_PRODUCTION]),
+  getProductionStats
+);
+
+router.get(
   "/:id",
   authenticate,
   authorizePermission([Permission.READ_PRODUCTION]),
@@ -49,4 +57,6 @@ router.delete(
   authorizePermission([Permission.DELETE_PRODUCTION]),
   deleteProduction,
 );
+
+
 export default router;

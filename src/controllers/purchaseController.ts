@@ -1,40 +1,35 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
-import { Purchase } from "../typages/purchase.js";
+import { Purchase, PurchaseStatus } from "../typages/purchase.js";
+import {PaymentStatus } from "../typages/payment.js";
 
 // ======================================================
 // CREATE Purchase
 // ======================================================
-export const createPurchase = async (
-  req: Request<{}, {}, Purchase>,
-  res: Response,
-  next: NextFunction,
-) => {
+export const createPurchase = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { name, farmId, supplierId, totalAmount, purchaseDate, description } =
-      req.body;
+    const { farmId, supplierId, totalAmount, ...rest } = req.body;
 
-    if (!farmId) {
-      return ResponseApi.error(res, "farmId est obligatoire", 400);
+    const purchase = await prisma.purchase.create({ data: { farmId, supplierId, totalAmount, ...rest } });
+
+    // Enregistrer le paiement
+    if (rest.status === PurchaseStatus.RECEIVED && totalAmount > 0) {
+      await prisma.payment.create({
+        data: {
+          purchaseId: purchase.id,
+          farmId,
+          organizationId: req.user?.defaultOrganizationId,
+          amount: totalAmount,
+          method: rest.paymentMethod || "cash",
+          status: PaymentStatus.SUCCESS,
+          reference: `PURCHASE-${purchase.id}`,
+          userId: req.user?.id,
+        },
+      });
     }
 
-    if (supplierId === undefined) {
-      throw new Error("Le supplierId est obligatoire pour créer un achat.");
-    }
-
-    const purchase = await prisma.purchase.create({
-      data: {
-        name,
-        farmId,
-        supplierId,
-        totalAmount,
-        description,
-        purchaseDate,
-      },
-    });
-
-    return ResponseApi.success(res, "Achat créé avec succès", 201, purchase);
+    return ResponseApi.success(res, "Achat + paiement enregistrés", 201, purchase);
   } catch (error) {
     next(error);
   }
@@ -135,7 +130,7 @@ export const getPurchaseById = async (
 // UPDATE Purchase
 // ======================================================
 export const updatePurchase = async (
-  req: Request<{ id: string }, {}, Partial<Purchase>>,
+  req: Request,
   res: Response,
   next: NextFunction,
 ) => {
@@ -146,9 +141,28 @@ export const updatePurchase = async (
       return ResponseApi.error(res, "ID invalide", 400);
     }
 
+    const { farmId, supplierId, totalAmount, purchaseDate, notes, taxAmount, status,itemName,invoiceNumber } =
+      req.body;
+
+    const updateData: any = {};
+    if (farmId) updateData.farmId = Number(farmId);
+    if (supplierId) updateData.supplierId = Number(supplierId);
+    if (totalAmount) updateData.totalAmount = Number(totalAmount);
+    if (itemName) updateData.itemName =itemName;
+    if (purchaseDate) updateData.purchaseDate = purchaseDate;
+    if (notes) updateData.notes = notes;
+    if (taxAmount) updateData.taxAmount = Number(taxAmount);
+    if (status) updateData.status = status;
+    if (invoiceNumber) updateData.invoiceNumber = invoiceNumber;
+
+
     const updated = await prisma.purchase.update({
       where: { id: Number(id) },
-      data: req.body,
+      data: {
+        ...updateData,
+        invoiceNumber,
+        createdById: req.user?.id,
+      },
     });
 
     return ResponseApi.success(res, "Achat mis à jour", 200, updated);

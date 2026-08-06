@@ -4,7 +4,7 @@ import fs from "fs";
 import fsp from "fs/promises";
 import path from "path";
 import { UploadedFile } from "express-fileupload";
-import { format, parse } from "date-fns";
+import { format ,parseISO} from "date-fns";
 import { Request, Response } from "express";
 
 // Conversion de __filename et __dirname pour ES Modules
@@ -167,10 +167,13 @@ class Utilities {
   /**
    * Formate une date pour la base de données
    */
-  static formatDate(date: string | Date): string {
-    const dateObj = typeof date === "string" ? parse(date) : date;
-    return format(dateObj, "yyyy-MM-dd HH:mm:ss");
-  }
+ static formatDate(date: string | Date): string {
+  const dateObj = typeof date === "string" 
+    ? parseISO(date) 
+    : date;
+
+  return format(dateObj, "yyyy-MM-dd HH:mm:ss");
+}
 
   /**
    * Génère un entier aléatoire
@@ -196,3 +199,4 @@ class Utilities {
 }
 
 export default Utilities;
+

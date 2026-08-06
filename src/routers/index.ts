@@ -27,10 +27,8 @@ import production from "./production.js";
 import expense from "./expense.js";
 import sale from "./sale.js";
 import saleItems from "./saleItems.js";
-import expenseCategory from "./expenseCategory.js";
 import notifications from "./notification.js";
 import apiKeys from "./apikey.js";
-import feedstock from "./feedStock.js";
 import feedUsage from "./feedUsage.js";
 import report from "./report.js";
 import FinancialReport from "./financialReport.js";
@@ -44,6 +42,23 @@ import invoice from "./invoice.router.js";
 import feedPurchase from "./feedPurchase.js";
 import supplier from "./supplier.js";
 import subscription from "./subscription.router.js";
+import gestation from "./gestation.js";
+import geneticPerformance from "./geneticPerformance.js";
+import pedigree from "./pedigree.js";
+import reproductionCycle from "./reproductionCycle.js";
+import gestationCheckup from "./gestationCheckup.js";
+import feedingPlan from './feedingplanRouter.js';
+import client from "./client.js";
+import stockMovement from "./stockMovement.js";
+import feedStock from "./feedStock.js";
+import settings from "./settings.js";
+import userRole from "./userRole.js";
+import rolePermission from "./rolePermission.js";
+import role from "./role.js";
+import permission from "./permission.js";
+import farmUser from "./farmUser.js";
+import activityLog from "./activityLog.js";
+import invitation from "./router.Invitation.js";
 
 const router = {
   auth,
@@ -75,10 +90,8 @@ const router = {
   expense,
   sale,
   saleItems,
-  expenseCategory,
   notifications,
   apiKeys,
-  feedstock,
   feedUsage,
   report,
   FinancialReport,
@@ -92,5 +105,22 @@ const router = {
   feedPurchase,
   supplier,
   subscription,
+  gestation,
+  geneticPerformance,
+  pedigree,
+  reproductionCycle,
+  gestationCheckup,
+  feedingPlan,
+  client,
+  stockMovement,
+  feedStock,
+  settings,
+  userRole,
+  rolePermission,
+  role,
+  permission,
+  farmUser,
+  activityLog,
+  invitation,
 };
 export default router;

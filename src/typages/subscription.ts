@@ -1,4 +1,14 @@
-import { SubscriptionStatus, RenewalType } from "../../generated/prisma/enums";
+import { Plan } from "./plan.js";
+import { Invoices } from "./invoices.js";
+export enum  SubscriptionStatus {
+  ACTIVE = "ACTIVE",
+  CANCELED = "CANCELED",
+  EXPIRED = "EXPIRED",
+}
+export enum RenewalType {
+  AUTO = "AUTO",
+  MANUAL = "MANUAL",
+}
 
 export interface Subscription {
   id: number;
@@ -8,4 +18,6 @@ export interface Subscription {
   endDate: Date;
   renewalType: RenewalType;
   status: SubscriptionStatus;
+  plan: Plan;
+  invoices:Invoices[];
 }

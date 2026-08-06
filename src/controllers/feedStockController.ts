@@ -1,54 +1,71 @@
-// CRUD complet avec pagination pour FeedStock
 import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
+import { CreateFeedStockInput, UpdateFeedStockInput } from "../typages/feedStock.js";
 
 export const createFeedStock = async (
-  req: Request,
+  req: Request<{}, {}, CreateFeedStockInput>,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
+    const { feedUsages, ...feedStockBody } = req.body;
     const stock = await prisma.feedStock.create({
-      data: req.body,
-      include: { farm: true },
+      // cast to any to avoid TS issues with nested create input shapes from request body
+      data: {
+        ...feedStockBody,
+        totalValue: feedStockBody.totalValue ?? (feedStockBody.quantity * (feedStockBody.unitPrice || 0)),
+        ...(feedUsages ? { feedUsages: { create: feedUsages } } : {}),
+      } as any,
+      include: {
+        farm: { select: { id: true, name: true } },
+        supplier: { select: { id: true, name: true } },
+      },
     });
-    return ResponseApi.success(res, "FeedStock créé", 201, stock);
+
+    return ResponseApi.success(res, "Stock d'aliment créé avec succès", 201, stock);
   } catch (error) {
     next(error);
   }
 };
 
 export const getAllFeedStocks = async (
-  req: Request<{}, {}, {}, { farmId?: string; page?: string; limit?: string }>,
+  req: Request<{}, {}, {}, { farmId?: string; page?: string; limit?: string; status?: string }>,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
-    const { farmId } = req.query;
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const { farmId, page, limit, status } = req.query;
+    const currentPage = Number(page) || 1;
+    const take = Number(limit) || 15;
+    const skip = (currentPage - 1) * take;
+
     const where: any = {};
     if (farmId) where.farmId = Number(farmId);
+    if (status) where.status = status;
 
-    const stocks = await prisma.feedStock.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { id: "desc" },
-      include: { farm: true, feedUsages: true, animalFeedings: true },
-    });
-    const totalItems = await prisma.feedStock.count({ where });
+    const [stocks, totalItems] = await Promise.all([
+      prisma.feedStock.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { createdAt: "desc" },
+        include: {
+          farm: { select: { id: true, name: true } },
+          supplier: { select: { id: true, name: true } },
+        },
+      }),
+      prisma.feedStock.count({ where }),
+    ]);
 
-    return ResponseApi.success(res, "Liste des FeedStocks récupérée", 200, {
+    return ResponseApi.success(res, "Liste des stocks récupérée", 200, {
       stocks,
       pagination: {
-        currentPage: page,
-        previousPage: page > 1 ? page - 1 : null,
-        nextPage: page * limit < totalItems ? page + 1 : null,
+        currentPage,
+        previousPage: currentPage > 1 ? currentPage - 1 : null,
+        nextPage: currentPage * take < totalItems ? currentPage + 1 : null,
         totalItems,
-        totalPage: Math.ceil(totalItems / limit),
+        totalPages: Math.ceil(totalItems / take),
       },
     });
   } catch (error) {
@@ -59,35 +76,48 @@ export const getAllFeedStocks = async (
 export const getFeedStockById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     const stock = await prisma.feedStock.findUnique({
       where: { id: Number(req.params.id) },
-      include: { farm: true, feedUsages: true, animalFeedings: true },
+      include: {
+        farm: true,
+        supplier: true,
+        feedUsages: true,
+        animalFeedings: true,
+        feedingPlans: true,
+      },
     });
-    if (!stock) return ResponseApi.error(res, "FeedStock non trouvé", 404);
-    return ResponseApi.success(res, "FeedStock récupéré", 200, stock);
+
+    if (!stock) return ResponseApi.error(res, "Stock non trouvé", 404);
+
+    return ResponseApi.success(res, "Stock récupéré", 200, stock);
   } catch (error) {
     next(error);
   }
 };
 
 export const updateFeedStock = async (
-  req: Request<{ id: string }, {}, any>,
+  req: Request<{ id: string }, {}, UpdateFeedStockInput>,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     const updated = await prisma.feedStock.update({
       where: { id: Number(req.params.id) },
-      data: req.body,
-      include: { farm: true, feedUsages: true, animalFeedings: true },
+      data: req.body as any,
+      include: {
+        farm: true,
+        supplier: true,
+      },
     });
-    return ResponseApi.success(res, "FeedStock mis à jour", 200, updated);
+
+    return ResponseApi.success(res, "Stock mis à jour avec succès", 200, updated);
   } catch (error: any) {
-    if (error.code === "P2025")
-      return ResponseApi.error(res, "FeedStock non trouvé", 404);
+    if (error.code === "P2025") {
+      return ResponseApi.error(res, "Stock non trouvé", 404);
+    }
     next(error);
   }
 };
@@ -95,16 +125,17 @@ export const updateFeedStock = async (
 export const deleteFeedStock = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction,
+  next: NextFunction
 ) => {
   try {
     const deleted = await prisma.feedStock.delete({
       where: { id: Number(req.params.id) },
     });
-    return ResponseApi.success(res, "FeedStock supprimé", 200, deleted);
+    return ResponseApi.success(res, "Stock supprimé avec succès", 200, deleted);
   } catch (error: any) {
-    if (error.code === "P2025")
-      return ResponseApi.error(res, "FeedStock non trouvé", 404);
+    if (error.code === "P2025") {
+      return ResponseApi.error(res, "Stock non trouvé", 404);
+    }
     next(error);
   }
 };

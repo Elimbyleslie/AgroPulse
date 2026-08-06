@@ -1,19 +1,20 @@
 export interface Purchase {
   id: number;
-  name: string;
   supplierId: number;
   farmId: number;
-  totalAmount?: number;
-  description?: string;
-  purchaseDate?: string; // ISO
-  invoiceRef: string;
+  totalAmount: number;
+  itemName:string;
+  notes?: string;
+  purchaseDate: string; 
+  invoiceNumber?: string;
   createdAt: string;
+  taxAmount?: number;
+  status: PurchaseStatus;
+  createdById?: number;
 }
 
 export enum PurchaseStatus {
   PENDING = "PENDING",
-  SUCCESS = "SUCCESS",
-  FAILED = "FAILED",
+  RECEIVED="RECEIVED",
   CANCELLED = "CANCELLED",
-  REFUNDED = "REFUNDED",
 }

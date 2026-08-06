@@ -59,18 +59,24 @@ export const getInvoiceById = async (req: Request, res: Response) => {
 };
 
 // Lister toutes les factures d'une organisation
-export const getAllOrganizationInvoices = async (
-  req: Request,
-  res: Response,
-) => {
+export const getAllOrganizationInvoices = async (req: Request, res: Response) => {
   try {
-    const { organizationId } = req.params;
+    const user = req.user; // venant de ton middleware authenticate
+    const organizationId = user?.defaultOrganizationId;
+
+    console.log("Organization ID utilisé :", organizationId);
+
+    if (!organizationId) {
+      return ResponseApi.error(res, "Organization ID non trouvé", 400);
+    }
 
     const invoices = await prisma.invoice.findMany({
       where: { organizationId: Number(organizationId) },
-      include: { subscription: true },
+      include: { subscription: { include: { plan: true } } },
       orderBy: { issuedAt: "desc" },
     });
+
+    console.log(`✅ ${invoices.length} factures trouvées`);
 
     return ResponseApi.success(res, "Liste des factures", 200, invoices);
   } catch (error) {

@@ -50,9 +50,21 @@ export const createFarm = async (
         location: data.location,
         photo: photoPath,
         areaUnit: data.areaUnit,
-        managerId: req.user?.id ?? undefined as unknown as number ,
+        managerId: req.user?.id ?? (undefined as unknown as number),
       },
     });
+    // Ne mettre à jour que si pas encore de ferme par défaut
+    const currentUser = await prisma.user.findUnique({
+      where: { id: req.user?.id },
+      select: { defaultFarmId: true },
+    });
+
+    if (!currentUser?.defaultFarmId) {
+      await prisma.user.update({
+        where: { id: req.user?.id },
+        data: { defaultFarmId: farm.id },
+      });
+    }
 
     ResponseApi.success(res, "Votre ferme a été créée avec succès", 201, farm);
   } catch (error: any) {
@@ -119,11 +131,11 @@ export const getAllFarm = async (
       skip: offset,
       take: limit,
       orderBy: { createdAt: "desc" },
-      where:{
-        organization :{
-          ownerId: userId
-        }
-      }
+      where: {
+        organization: {
+          ownerId: userId,
+        },
+      },
     });
 
     const totalItems = await prisma.farm.count({ where });
@@ -340,16 +352,27 @@ export const deleteFarm = async (
 
 // recuperer les fermes dont l'user est proprietaire ou celles dont il a ete affilié
 
-export const getMyFarms = (req: Request, res: Response, next: NextFunction) => {
+export const getMyFarms = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const userId = req.user?.id;
-    const farms = prisma.farm.findMany({
+
+    if (!userId) {
+      return ResponseApi.error(res, "Utilisateur non authentifié", 401);
+    }
+
+    const farms = await prisma.farm.findMany({
+      // ← await manquant !
       where: {
         OR: [{ members: { some: { userId } } }, { managerId: userId }],
       },
       orderBy: { createdAt: "asc" },
     });
-    return ResponseApi.success(res, "Fermes rencontrées", 200, farms);
+
+    return ResponseApi.success(res, "Fermes récupérées", 200, farms);
   } catch (error) {
     next(error);
   }

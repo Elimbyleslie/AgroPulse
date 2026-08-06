@@ -4,12 +4,21 @@ export const createFeedSupplierSchema = yup.object({
   name: yup.string().required("Le nom du fournisseur est obligatoire"),
   email: yup.string().email("Email invalide").nullable(),
   phone: yup.string().nullable(),
+  category: yup
+    .string()
+    .oneOf(["FEED", "MEDICAL", "EQUIPMENT", "SERVICE", "OTHER"], "Catégorie invalide")
+    .required("La catégorie est obligatoire"),
+    farmId: yup.number().required("farmId est obligatoire").typeError("farmId doit être un nombre"),
 });
 
 export const updateFeedSupplierSchema = yup.object({
   name: yup.string().nullable(),
   email: yup.string().email("Email invalide").nullable(),
   phone: yup.string().nullable(),
+  category: yup
+    .string()
+    .oneOf(["FEED", "MEDICAL", "EQUIPMENT", "SERVICE", "OTHER"], "Catégorie invalide")
+    .nullable(),
 });
 
 export const createFeedPurchaseSchema = yup.object({

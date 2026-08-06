@@ -5,6 +5,7 @@ import {
   getSaleItemById,
   updateSaleItem,
   deleteSaleItem,
+  getSaleItemsBySaleId
 } from "../controllers/salesItemsController.js";
 import {
   createSaleItemSchema,
@@ -23,18 +24,28 @@ router.post(
   validator(createSaleItemSchema),
   createSaleItem,
 );
+
 router.get(
   "/",
   authenticate,
   authorizePermission([Permission.READ_SALE_ITEM]),
   getAllSaleItems,
 );
+
+router.get(
+  "/by-sale/:saleId",
+  authenticate,
+  authorizePermission([Permission.READ_SALE_ITEM]),
+  getSaleItemsBySaleId,
+);
+
 router.get(
   "/:id",
   authenticate,
   authorizePermission([Permission.READ_SALE_ITEM]),
   getSaleItemById,
 );
+
 router.put(
   "/:id",
   authenticate,
@@ -42,10 +53,12 @@ router.put(
   validator(updateSaleItemSchema),
   updateSaleItem,
 );
+
 router.delete(
   "/:id",
   authenticate,
   authorizePermission([Permission.DELETE_SALE_ITEM]),
   deleteSaleItem,
 );
+
 export default router;

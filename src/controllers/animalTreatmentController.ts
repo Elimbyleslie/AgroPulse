@@ -49,7 +49,9 @@ export const getAllAnimalTreatments = async (
     const treatments = await prisma.animalTreatment.findMany({
       skip: offset,
       take: limit,
-      where,
+       where:{
+      animal: {farmId : req.user?.defaultFarmId},
+      },
       orderBy: { startDate: "desc" },
       include: {
         animal: true,

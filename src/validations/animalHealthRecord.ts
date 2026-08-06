@@ -2,6 +2,7 @@ import * as Yup from "yup";
 
 export const createAnimalHealthRecordSchema = Yup.object().shape({
   animalId: Yup.number().optional(),
+  farmId: Yup.number().required("Le farmId est requis pour créer un enregistrement"),
   lotId: Yup.number().optional(),
   checkDate: Yup.date().required("Date du contrôle obligatoire"),
   symptoms: Yup.string().optional(),

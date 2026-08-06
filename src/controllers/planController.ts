@@ -17,6 +17,8 @@ export const createPlan = async (
       userLimit,
       storageLimit,
       animalLimit,
+      farmLimit,
+      unitStorage,
     } = req.body;
 
     if (!name || !price || !durationDays || !billingCycle) {
@@ -33,6 +35,8 @@ export const createPlan = async (
         userLimit,
         storageLimit,
         animalLimit,
+        farmLimit,
+        unitStorage,
       },
     });
 
