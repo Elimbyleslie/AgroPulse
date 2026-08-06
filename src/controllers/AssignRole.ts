@@ -116,7 +116,7 @@ export async function assignSuperAdminIfEligible(userId: number) {
   const userCount = await prisma.user.count();
 
   // 2. Verify the limit of 5 users
-  if (userCount > 5) {
+  if (userCount > 1) {
     console.log(
       "More than 5 users in the database, no additional SuperAdmins can be assigned.",
     );

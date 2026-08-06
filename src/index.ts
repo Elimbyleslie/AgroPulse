@@ -95,8 +95,9 @@ app.use("/api/users", router.user);
 app.use("/api/subscriptions", router.subscription);
 app.use("/api/clients", router.client);
 app.use("/api/settings", router.settings);
-app.use("api/invoices", router.invoice);
-
+app.use("/api/invoices", router.invoice);
+// app.ts / index.ts
+app.use("/api", router.invitation); 
 
 // =====================
 // Routes protégées par authentification et permission
@@ -166,7 +167,13 @@ app.use("/api/stock-movements", router.stockMovement);
 app.use("/api/notifications", router.notifications);
 app.use("/api/alerts", router.alert);
 
-
+//_role_permission_______________
+app.use("/api/user-Roles",router.userRole),
+app.use("/api/role-Permissions",router.rolePermission),
+app.use("/api/roles", router.role),
+app.use("/api/permissions",router.permission),
+app.use("/api/activity-logs", router.activityLog);
+app.use("/api/farm-users", router.farmUser);
 // =====================
 // Errors
 // =====================

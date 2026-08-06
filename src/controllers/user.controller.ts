@@ -8,13 +8,49 @@ import { User } from "../typages/user.js";
 // 🧩 Récupérer tous les utilisateurs
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
-    const users = await prisma.user.findMany({
-      include: {
-        roles: true, // si tu as une table UserRole reliée
-        memberOrganizations: true,
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit as string) || 20);
+    const search = (req.query.search as string) || undefined;
+    const status = (req.query.status as string) || undefined;
+    const farmId = req.query.farmId ? Number(req.query.farmId) : undefined;
+
+    const where: any = {};
+    if (search) {
+      where.OR = [
+        { name: { contains: search} },
+        { email: { contains: search} },
+        { userName: { contains: search} },
+      ];
+    }
+    if (status) where.status = status;
+    if (farmId) where.defaultFarmId = farmId;
+
+    const [users, totalItems] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        include: {
+          roles: true,
+          memberOrganizations: true,
+        },
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { name: "asc" },
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(totalItems / limit));
+
+    res.json({
+      data: users,
+      pagination: {
+        currentPage: page,
+        previousPage: page > 1 ? page - 1 : null,
+        nextPage: page < totalPages ? page + 1 : null,
+        totalItems,
+        totalPages,
       },
     });
-    res.json(users);
   } catch (error) {
     res.status(500).json({
       message: "Erreur lors de la récupération des utilisateurs",
@@ -46,41 +82,6 @@ export const getUserById = async (req: Request, res: Response) => {
     res.status(500).json({ message: "Erreur serveur", error });
   }
 };
-
-// ➕ Créer un nouvel utilisateur
-// export const createUser = async (req: Request, res: Response) => {
-//   try {
-//     const { name, email, passwordHash, organizationId, roleIds } = req.body;
-
-//     // Vérifie si l'email existe déjà
-//     const existing = await prisma.user.findUnique({ where: { email } });
-//     if (existing) return res.status(400).json({ message: 'Email déjà utilisé' });
-
-//     // Crée l’utilisateur
-//     const user = await prisma.user.create({
-//       data: {
-//         name,
-//         email,
-//         passwordHash, // (ici tu pourras hasher le mot de passe comme dans auth.controller)
-//         organizationId,
-//         roles: {
-//           create: roleIds?.map((roleId: number) => ({ roleId })) || [],
-//         },
-//       },
-//       include: { roles: true },
-//     });
-//    const saltRounds = 10;
-//   const salt = await bcrypt.genSalt(saltRounds);
-//   const hash = await bcrypt.hash(passwordHash, salt);
-//   data.passwordHash = hash;
-
-//   delete data.passwordConfirmation;
-//   const result = await prisma.user.create({ data });
-//     res.status(201).json({ message: 'Utilisateur créé avec succès', user });
-//   } catch (error) {
-//     res.status(500).json({ message: 'Erreur lors de la création', error });
-//   }
-// },
 
 export const createUser = async (
   req: Request,

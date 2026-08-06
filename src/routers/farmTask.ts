@@ -7,8 +7,8 @@ import {
 } from "../controllers/FarmTaskController.js";
 import { validator } from "../middlewares/validator.middleware.js";
 import {
-  createFarmTaskSchema,
-  updateFarmTaskSchema,
+  createTaskSchema as createFarmTaskSchema,
+  updateTaskSchema as updateFarmTaskSchema,
 } from "../validations/farmTask.js";
 import { Router } from "express";
 import { authenticate, authorizePermission } from "../middlewares/auth.js";

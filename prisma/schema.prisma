@@ -35,7 +35,8 @@ model Organization {
   backups       Backup[]
   audit         Audit[]
   payments      Payment[]
-    settings Settings[]
+  settings      Settings[]
+  invitations   Invitation[]
 }
 
 model Audit {
@@ -85,6 +86,8 @@ model User {
   secretOtp             String?
   otpExpiresAt          DateTime?
   googleId              String?
+  invitationToken       String?
+  invitationId          Int?
 
   provider      AuthProvider @default(LOCAL)
   emailVerified Boolean      @default(false)
@@ -124,6 +127,8 @@ model User {
   financialReports    FinancialReport[]
   expenses            Expense[]
   stockMovements      StockMovement[]
+  createdInvitations  Invitation[]           @relation("CreatorInvitations")
+  usedInvitation      Invitation?            @relation("UsedInvitation", fields: [invitationId], references: [id])
 }
 
 enum AuthProvider {
@@ -249,7 +254,7 @@ model Farm {
   invoices              Invoice[]
   feedStocks            FeedStock[]
   suppliers             Supplier[]
-
+  invitations           Invitation[]
   settings              Settings?
 
   @@unique([organizationId, name])
@@ -270,7 +275,6 @@ model Barn {
   capacity  Int?
   photo     String?
   createdAt DateTime @default(now())
-  
 
   farm    Farm     @relation(fields: [farmId], references: [id], onDelete: Cascade)
   animals Animal[]
@@ -779,29 +783,31 @@ model Sale {
 }
 
 model SaleItem {
-  id           Int             @id @default(autoincrement())
-  saleId       Int
-  productName  String // obligatoire
-  category     ProductCategory // copié depuis Production au moment de la vente
-  unit         String // copié depuis Production.unit
-  quantity     Float // Float, pas Int
-  unitPrice    Float
-  totalPrice   Float
-  discount     Float           @default(0)
-  animalId     Int? // @unique retiré
+  id          Int             @id @default(autoincrement())
+  saleId      Int
+  productName String
+  category    ProductCategory
+  unit        String
+  quantity    Float
+  unitPrice   Float
+  totalPrice  Float
+  discount    Float           @default(0)
+
+  productionId Int?
   lotId        Int?
-  productionId Int? // lien optionnel vers la production source
-  description  String?
-  notes        String?
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  animalId     Int?
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   sale       Sale        @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  production Production? @relation(fields: [productionId], references: [id], onDelete: SetNull)
   lot        Lot?        @relation(fields: [lotId], references: [id], onDelete: SetNull)
   animal     Animal?     @relation(fields: [animalId], references: [id], onDelete: SetNull)
-  production Production? @relation(fields: [productionId], references: [id], onDelete: SetNull)
 
   @@index([saleId])
+  @@map("sale_items")
 }
 
 /////////////////////////
@@ -847,6 +853,27 @@ model Inventory {
   equipment     Equipment[] // Matériel d'élevage
 
   @@map("inventory")
+}
+
+model Invitation {
+  id             Int       @id @default(autoincrement())
+  token          String    @unique @default(uuid())
+  organizationId Int
+  farmId         Int?
+  roleId         Int?
+  createdBy      Int
+  expiresAt      DateTime?
+  maxUses        Int?      @default(1) // null = illimité
+  usedCount      Int       @default(0)
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  farm         Farm?        @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  creator      User         @relation("CreatorInvitations", fields: [createdBy], references: [id])
+  users        User[]       @relation("UsedInvitation")
+
+  @@index([organizationId])
+  @@index([token])
 }
 
 model StockMovement {
@@ -906,7 +933,7 @@ model Supplier {
   phone    String?
   farmId   Int?
 
-  farm     Farm? @relation(fields: [farmId], references: [id])
+  farm Farm? @relation(fields: [farmId], references: [id])
 
   purchases    Purchase[]
   feedPurchase FeedPurchase[]
@@ -916,10 +943,10 @@ model Supplier {
 }
 
 enum SupplierCategory {
-  FEED 
-  MEDICAL 
-  EQUIPMENT 
-  SERVICE 
+  FEED
+  MEDICAL
+  EQUIPMENT
+  SERVICE
   OTHER
 }
 
@@ -1082,16 +1109,16 @@ enum MaintenanceFrequency {
 }
 
 model Equipment {
-  id                    Int                    @id @default(autoincrement())
-  farmId                Int
-  name                  String
-  description           String?
-  purchaseDate          DateTime?
-  inventoryId           Int?                   // ← retire @unique pour l'instant
-  status                EquipmentStatus        @default(operational)
-  value                 Float?
-  maintenanceFrequency  MaintenanceFrequency   @default(daily)
-  createdAt             DateTime               @default(now())
+  id                   Int                  @id @default(autoincrement())
+  farmId               Int
+  name                 String
+  description          String?
+  purchaseDate         DateTime?
+  inventoryId          Int? // ← retire @unique pour l'instant
+  status               EquipmentStatus      @default(operational)
+  value                Float?
+  maintenanceFrequency MaintenanceFrequency @default(daily)
+  createdAt            DateTime             @default(now())
 
   farm                  Farm                   @relation(fields: [farmId], references: [id], onDelete: Cascade)
   inventory             Inventory?             @relation(fields: [inventoryId], references: [id], onDelete: SetNull)
@@ -1223,17 +1250,24 @@ model Report {
 // SAAS / SUBSCRIPTIONS / PLANS / API KEYS / BACKUPS / INVOICES
 /////////////////////////
 
+enum UnitStorage {
+ MO
+ GO
+ TO
+}
 model Plan {
   id            Int            @id @default(autoincrement())
-  name          String
+  name          String         @unique
   price         Float
   durationDays  Int
   description   String?
   billingCycle  BillingCycle
   createdAt     DateTime       @default(now())
+  unitStorage   UnitStorage     
   userLimit     Int?
   storageLimit  Int?
   animalLimit   Int?
+  farmLimit     Int?
   subscriptions Subscription[]
 }
 
@@ -1570,54 +1604,53 @@ model Pedigree {
   updatedAt DateTime @updatedAt
 }
 
-
 /////////////////////////
 // SETTINGS & CONFIGURATION
 /////////////////////////
 
 model Settings {
-  id             Int      @id @default(autoincrement())
+  id             Int  @id @default(autoincrement())
   organizationId Int?
-  farmId         Int?     @unique // Une ferme = un jeu de paramètres
+  farmId         Int? @unique // Une ferme = un jeu de paramètres
 
   // === Configuration Générale ===
-  currency          String   @default("XOF") // F CFA
-  language          String   @default("fr")   // fr, en, etc.
-  dateFormat        String   @default("DD/MM/YYYY")
-  timezone          String   @default("Africa/Dakar")
+  currency   String @default("XOF") // F CFA
+  language   String @default("fr") // fr, en, etc.
+  dateFormat String @default("DD/MM/YYYY")
+  timezone   String @default("Africa/Dakar")
 
   // === Unités de Mesure ===
-  weightUnit        String   @default("kg")   // kg, g, lb
-  volumeUnit        String   @default("L")    // L, ml
-  areaUnit          String   @default("ha")   // ha, m², acres
+  weightUnit String @default("kg") // kg, g, lb
+  volumeUnit String @default("L") // L, ml
+  areaUnit   String @default("ha") // ha, m², acres
 
   // === Paramètres d'Élevage ===
-  defaultSpeciesId  Int?                     // Espèce par défaut
+  defaultSpeciesId  Int? // Espèce par défaut
   defaultBreedId    Int?
-  heatDetectionDays Int      @default(21)     // Cycle moyen de chaleur
-  gestationDuration Int      @default(280)    // Jours de gestation (bovins ~280)
+  heatDetectionDays Int  @default(21) // Cycle moyen de chaleur
+  gestationDuration Int  @default(280) // Jours de gestation (bovins ~280)
 
   // === Notifications ===
-  enableEmailAlerts Boolean  @default(true)
-  enableSmsAlerts   Boolean  @default(false)
-  lowStockThreshold Decimal  @default(10) @db.Decimal(12, 2) // Seuil alerte stock
+  enableEmailAlerts Boolean @default(true)
+  enableSmsAlerts   Boolean @default(false)
+  lowStockThreshold Decimal @default(10) @db.Decimal(12, 2) // Seuil alerte stock
 
   // === Finance ===
-  taxRate           Float?   @default(0)     // Taux de TVA par défaut
+  taxRate              Float?        @default(0) // Taux de TVA par défaut
   defaultPaymentMethod PaymentMethod @default(cash)
 
   // === Apparence & UI ===
-  primaryColor      String?  @default("#1e40af")
-  logoUrl           String?
-  farmName          String?
+  primaryColor String? @default("#1e40af")
+  logoUrl      String?
+  farmName     String?
 
   // === Métadonnées ===
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
   farm         Farm?         @relation(fields: [farmId], references: [id], onDelete: Cascade)
 
-  @@unique([organizationId, farmId]) 
+  @@unique([organizationId, farmId])
 }

@@ -14,5 +14,7 @@ export const createdUserSchema = yup.object({
   passwordConfirmation: yup
     .string()
     .oneOf([yup.ref("password")], "les mots de passe doivent correspondre")
-    .required(),
+    .optional(),
+  userName: yup.string().required().min(2),
+ 
 });

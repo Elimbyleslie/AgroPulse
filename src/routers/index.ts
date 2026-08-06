@@ -52,6 +52,14 @@ import client from "./client.js";
 import stockMovement from "./stockMovement.js";
 import feedStock from "./feedStock.js";
 import settings from "./settings.js";
+import userRole from "./userRole.js";
+import rolePermission from "./rolePermission.js";
+import role from "./role.js";
+import permission from "./permission.js";
+import farmUser from "./farmUser.js";
+import activityLog from "./activityLog.js";
+import invitation from "./router.Invitation.js";
+
 const router = {
   auth,
   audit,
@@ -107,5 +115,12 @@ const router = {
   stockMovement,
   feedStock,
   settings,
+  userRole,
+  rolePermission,
+  role,
+  permission,
+  farmUser,
+  activityLog,
+  invitation,
 };
 export default router;

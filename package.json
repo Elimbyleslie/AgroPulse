@@ -13,6 +13,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "npx tsx prisma/seed.ts",
     "seed2": "npx tsx prisma/seedSpecies.ts",
+    "seed3": "npx tsx prisma/planSeed.ts",
     "postinstall": "prisma generate && prisma migrate deploy",
     "db:reset": "npx prisma migrate reset",
     "db:generate": "npx prisma generate",

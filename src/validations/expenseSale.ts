@@ -120,60 +120,164 @@ export const updateSaleSchema = createSaleSchema.shape({
     .optional(),
 });
 
+//saleItem validation-==============
 
 
-export const createSaleItemSchema = Yup.object().shape({
-  saleId: Yup.number()
-    .required("L'identifiant de la vente est obligatoire")
-    .positive(),
+// ====================== CREATE ======================
+export const createSaleItemSchema = Yup.object({
+  saleId:   Yup
+    .number()
+    .integer("saleId doit être un entier")
+    .positive("saleId invalide")
+    .required("La vente est obligatoire"),
 
-  productName: Yup.string()
-    .required("Le nom du produit est obligatoire")
-    .min(2, "Le nom doit contenir au moins 2 caractères")
-    .max(150, "Le nom est trop long"),
-
-  description: Yup.string()
+  productName: Yup
+    .string()
     .trim()
-    .max(500, "La description est trop longue")
-    .nullable()
-    .optional(),
+    .min(1, "Le nom du produit est obligatoire")
+    .max(150, "Nom trop long (max 150 caractères)")
+    .required("Le nom du produit est obligatoire"),
 
-category: Yup.mixed<ProductCategory>()
-  .oneOf(Object.values(ProductCategory), "Catégorie invalide")
-  .required("La catégorie est obligatoire"),
-  lotId: Yup.number()
+  category: Yup
+    .mixed<ProductCategory>()
+    .oneOf(Object.values(ProductCategory), "Catégorie invalide")
+    .required("La catégorie est obligatoire"),
+
+  unit: Yup
+    .string()
+    .trim()
+    .min(1, "L'unité est obligatoire")
+    .max(30, "Unité trop longue")
+    .required("L'unité est obligatoire"),
+
+  quantity: Yup
+    .number()
+    .typeError("La quantité doit être un nombre")
+    .positive("La quantité doit être supérieure à 0")
+    .required("La quantité est obligatoire"),
+
+  unitPrice: Yup
+    .number()
+    .typeError("Le prix unitaire doit être un nombre")
+    .min(0, "Le prix unitaire ne peut pas être négatif")
+    .required("Le prix unitaire est obligatoire"),
+
+  totalPrice: Yup
+    .number()
+    .typeError("Le total doit être un nombre")
+    .min(0, "Le total ne peut pas être négatif")
+    .required("Le total est obligatoire"),
+
+  discount: Yup 
+    .number()
+    .typeError("La remise doit être un nombre")
+    .min(0, "La remise ne peut pas être négative")
+    .default(0),
+
+  productionId: Yup
+    .number()
+    .integer()
     .positive()
     .nullable()
-    .optional(),
+    .transform((value, originalValue) =>
+      originalValue === "" || originalValue === null ? null : value
+    ),
 
-  animalId: Yup.number()
+  lotId: Yup
+    .number()
+    .integer()
     .positive()
     .nullable()
-    .optional(),
+    .transform((value, originalValue) =>
+      originalValue === "" || originalValue === null ? null : value
+    ),
 
-  quantity: Yup.number()
-    .required("La quantité est obligatoire")
-    .positive("La quantité doit être positive"),
+  animalId: Yup
+    .number()
+    .integer()
+    .positive()
+    .nullable()
+    .transform((value, originalValue) =>
+      originalValue === "" || originalValue === null ? null : value
+    ),
 
-  unitPrice: Yup.number()
-    .required("Le prix unitaire est obligatoire")
-    .positive("Le prix unitaire doit être positif"),
-
-  totalPrice: Yup.number()
-    .required("Le prix total est obligatoire")
-    .positive("Le prix total doit être positif"),
+  notes: Yup
+    .string()
+    .max(500, "Les notes sont trop longues (max 500 caractères)")
+    .nullable()
+    .transform((value, originalValue) =>
+      originalValue === "" ? null : value
+    ),
 });
 
-export const updateSaleItemSchema = createSaleItemSchema.shape({
-  saleId: Yup.number().optional(),
-  productName: Yup.string().min(2).max(150).optional(),
-  description: Yup.string().trim().max(500).nullable().optional(),
-  lotId: Yup.number().positive().nullable().optional(),
-  animalId: Yup.number().positive().nullable().optional(),
-  quantity: Yup.number().positive().optional(),
-  unitPrice: Yup.number().positive().optional(),
-  totalPrice: Yup.number().positive().optional(),
-  category: Yup.mixed<ProductCategory>()
-  .oneOf(Object.values(ProductCategory), "Catégorie invalide")
-  .optional(),
+// ====================== UPDATE ======================
+export const updateSaleItemSchema = Yup.object({
+  productName: Yup
+    .string()
+    .trim()
+    .min(1, "Le nom du produit est obligatoire")
+    .max(150)
+    .optional(),
+
+  category: Yup
+    .mixed<ProductCategory>()
+    .oneOf(Object.values(ProductCategory), "Catégorie invalide")
+    .optional(),
+
+  unit: Yup
+    .string()
+    .trim()
+    .min(1)
+    .max(30)
+    .optional(),
+
+  quantity: Yup
+    .number()
+    .typeError("La quantité doit être un nombre")
+    .positive("La quantité doit être supérieure à 0")
+    .optional(),
+
+  unitPrice: Yup
+    .number()
+    .typeError("Le prix unitaire doit être un nombre")
+    .min(0)
+    .optional(),
+
+  totalPrice: Yup
+    .number()
+    .typeError("Le total doit être un nombre")
+    .min(0)
+    .optional(),
+
+  discount: Yup
+    .number()
+    .min(0)
+    .optional(),
+
+  productionId: Yup
+    .number()
+    .integer()
+    .positive()
+    .nullable()
+    .optional(),
+
+  lotId: Yup
+    .number()
+    .integer()
+    .positive()
+    .nullable()
+    .optional(),
+
+  animalId: Yup
+    .number()
+    .integer()
+    .positive()
+    .nullable()
+    .optional(),
+
+  notes: Yup
+    .string()
+    .max(500)
+    .nullable()
+    .optional(),
 });

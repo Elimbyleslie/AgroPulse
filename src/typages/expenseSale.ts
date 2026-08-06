@@ -85,25 +85,28 @@ export interface Sale {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SaleItem
-// ─────────────────────────────────────────────────────────────────────────────
 
 export interface SaleItem {
   id?: number;
   saleId: number;
   productName: string;
-  category?: ProductCategory;
-  unit?: string;
+  category: ProductCategory;
+  unit: string;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
   discount?: number;
-  productionId?: number;
-  lotId?: number;
-  animalId?: number;
 
-  description?: string;
-  notes?: string;
+  productionId?: number | null;
+  lotId?: number | null;
+  animalId?: number | null;
 
-  createdAt?: string;
-  updatedAt?: string;
+  notes?: string | null;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+
+  sale?: any;
+  production?: any;
+  lot?: any;
+  animal?: any;
 }

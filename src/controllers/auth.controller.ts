@@ -243,60 +243,51 @@ export const refreshToken = async (req: Request, res: Response) => {
 
 /** REGISTER */
 export const register = async (
-  req: Request<any, any, RegisterUser>,
+  req: Request<any, any, RegisterUser & { invitationToken?: string }>,
   res: Response,
   next: NextFunction,
 ) => {
   try {
     const data = req.body;
 
-    const where = {
-      email: data.email,
-      userName: data.userName,
-    };
-
-    // 1️⃣ Vérifier si l'email existe déjà ou le userName
     const existingUser = await prisma.user.findUnique({
       where: { email: data.email, userName: data.userName, phone: data.phone },
     });
-
     if (existingUser) {
-      return res
-        .status(409)
-        .json(
-          Utilities.errorResponse(
-            409,
-            "Email ou userName existant ou numero deja enregistré.",
-          ),
-        );
+      return res.status(409).json(
+        Utilities.errorResponse(409, "Email ou userName existant ou numero deja enregistré."),
+      );
     }
 
-    // 2️⃣ Vérification mot de passe + confirmation
     if (data.password !== data.passwordConfirmation) {
-      return res
-        .status(400)
-        .json(
-          Utilities.errorResponse(
-            400,
-            "Les mots de passe ne correspondent pas.",
-          ),
-        );
+      return res.status(400).json(
+        Utilities.errorResponse(400, "Les mots de passe ne correspondent pas."),
+      );
     }
 
-    // 3️⃣ Hash du mot de passe
+    // 🔗 Résoudre l'invitation si un token est fourni
+    let invitation = null;
+    if (data.invitationToken) {
+      invitation = await prisma.invitation.findUnique({ where: { token: data.invitationToken } });
+      if (!invitation) {
+        return res.status(400).json(Utilities.errorResponse(400, "Lien d'invitation invalide."));
+      }
+      if (invitation.expiresAt && invitation.expiresAt < new Date()) {
+        return res.status(410).json(Utilities.errorResponse(410, "Ce lien d'invitation a expiré."));
+      }
+      if (invitation.maxUses !== null && invitation.usedCount >= invitation.maxUses) {
+        return res.status(410).json(Utilities.errorResponse(410, "Ce lien d'invitation a déjà été utilisé."));
+      }
+    }
+
     const hashedPassword = await Utilities.hashPassword(data.password);
 
-    // 4️⃣ Gérer l'upload de la photo
     let profilePhoto = "/uploads/default_profile.png";
     if (req.files?.photo) {
-      profilePhoto = await Utilities.saveFile(
-        req.files.photo as any,
-        "uploads/profiles",
-      );
+      profilePhoto = await Utilities.saveFile(req.files.photo as any, "uploads/profiles");
       profilePhoto = Utilities.resolveFileUrl(req, profilePhoto);
     }
 
-    // 5️⃣ Création utilisateur (LOCAL)
     const user = await prisma.user.create({
       data: {
         name: data.name,
@@ -309,25 +300,35 @@ export const register = async (
         emailVerified: false,
         status: "active",
         onboardingComplete: false,
-
-
+        // 🔗 Affiliation via invitation
+        ...(invitation && {
+          defaultOrganizationId: invitation.organizationId,
+          defaultFarmId: invitation.farmId ?? undefined,
+          invitationId: invitation.id,
+          memberOrganizations: { connect: { id: invitation.organizationId } },
+          roles: invitation.roleId
+            ? { create: { roleId: invitation.roleId, assignedBy: "invitation" } }
+            : undefined,
+        }),
       },
     });
 
-    // Générer token temporaire pour vérification email
+    // Incrémenter le compteur d'usage
+    if (invitation) {
+      await prisma.invitation.update({
+        where: { id: invitation.id },
+        data: { usedCount: { increment: 1 } },
+      });
+    }
+
     const tempToken = jwt.sign(
       { id_user: user.id, scope: "verify-email" },
       process.env.JWT_SECRET!,
       { expiresIn: "10m" },
     );
 
-    // 6️⃣ Attribution rôle admin si éligible
     await assignSuperAdminIfEligible(user.id);
 
-    // ⚠️ Pas d’OTP ici
-    // L’OTP est envoyé via /send-email-verification-otp
-
-    // 7️⃣ Nettoyage données sensibles
     const safeUser = {
       id_user: user.id,
       name: user.name,
@@ -335,15 +336,12 @@ export const register = async (
       emailVerified: user.emailVerified,
     };
 
-    return res
-      .status(201)
-      .json(
-        Utilities.successReponse(
-          201,
-          "Compte créé avec succès. Vérifiez votre email.",
-          { user: safeUser, token: tempToken },
-        ),
-      );
+    return res.status(201).json(
+      Utilities.successReponse(201, "Compte créé avec succès. Vérifiez votre email.", {
+        user: safeUser,
+        token: tempToken,
+      }),
+    );
   } catch (error) {
     next(error);
   }

@@ -22,7 +22,7 @@ router.post(
     upsertSettings,
 );
 router.put(
-    "/",
+    "/:id",
     authenticate,
     authorizePermission([Permission.UPDATE_SETTINGS]),
     validator(settingsUpdateValidationSchema),
