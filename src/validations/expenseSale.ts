@@ -104,6 +104,7 @@ export const createSaleSchema = Yup.object().shape({
   paymentMethod: Yup.mixed<PaymentMethod>()
     .oneOf(Object.values(PaymentMethod), "Méthode de paiement invalide")
     .default(PaymentMethod.cash),
+ 
 });
 
 export const updateSaleSchema = createSaleSchema.shape({

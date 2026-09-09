@@ -12,28 +12,39 @@ export const createHerd = async (
   next: NextFunction,
 ) => {
   try {
-    // 1. Extraction et conversion des types (FormData envoie du texte)
+    // 1. Extraction
     const farmId = Number(req.body.farmId);
     const speciesId = Number(req.body.speciesId);
-    const name = req.body.name;
-    const barnId= Number(req.body.barnId);
+    const name = req.body.name?.trim();
+    const barnId = Number(req.body.barnId);
 
-    // 2. Validation des champs obligatoires
-    if (!farmId || !speciesId || !name) {
+    // 2. Validation stricte
+    if (!farmId || isNaN(farmId)) {
+      return ResponseApi.error(res, "farmId est obligatoire et doit être un nombre", 400);
+    }
+
+    if (!speciesId || isNaN(speciesId)) {
+      return ResponseApi.error(res, "speciesId est obligatoire et doit être un nombre", 400);
+    }
+
+    if (!name) {
+      return ResponseApi.error(res, "Le nom du troupeau est obligatoire", 400);
+    }
+
+    // barnId est obligatoire selon ton schéma
+    if (!req.body.barnId || isNaN(barnId)) {
       return ResponseApi.error(
         res,
-        "Les champs farmId, speciesId et name sont obligatoires",
+        "barnId est obligatoire. Veuillez sélectionner un bâtiment.",
         400,
       );
     }
 
-    // 3. Vérification si un troupeau avec le même nom existe déjà dans cette ferme
+    // 3. Vérification du nom unique dans la ferme
     const existingHerd = await prisma.herd.findFirst({
       where: {
-        farmId: farmId,
-        name: {
-          equals: name,
-        },
+        farmId,
+        name,
       },
     });
 
@@ -41,25 +52,25 @@ export const createHerd = async (
       return ResponseApi.error(
         res,
         `Un troupeau nommé "${name}" existe déjà dans cette ferme.`,
-        400
+        400,
       );
     }
 
-    // 4. Gestion de l'image (via middleware multer)
+    // 4. Gestion de l'image
     const photoPath = req.file ? `/uploads/herds/${req.file.filename}` : null;
 
-    // 5. Création Prisma
+    // 5. Création
     const herd = await prisma.herd.create({
-      data: { 
-        farmId, 
-        speciesId, 
-        name, 
-        photo: photoPath ,
-        barnId
+      data: {
+        farmId,
+        speciesId,
+        name,
+        photo: photoPath,
+        barnId, // maintenant garanti d'être un nombre valide
       },
       include: {
-        species: true // Utile pour renvoyer les détails de l'espèce au front
-      }
+        species: true,
+      },
     });
 
     return ResponseApi.success(res, "Troupeau créé avec succès", 201, herd);
@@ -82,13 +93,14 @@ export const getAllHerds = async (
       speciesId?: string;
       page?: string;
       limit?: string;
+      barnId?:string 
     }
   >,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const { search, farmId, speciesId } = req.query;
+    const { search, farmId, speciesId, barnId } = req.query;
 
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
@@ -98,6 +110,7 @@ export const getAllHerds = async (
     if (search) where.name = { contains: search, mode: "insensitive" };
     if (farmId) where.farmId = Number(farmId);
     if (speciesId) where.speciesId = Number(speciesId);
+    if(barnId) where.barnId = Number(barnId)
 
     const herds = await prisma.herd.findMany({
       skip: offset,

@@ -69,8 +69,7 @@ export const getAllRoles = async (
         take: limit,
         orderBy: { name: "asc" },
         include: {
-          permissions: { include: { permission: true } },
-          _count: { select: { users: true } },
+          _count: { select: { users: true, permissions: true } },
         },
       }),
       prisma.role.count({ where }),
@@ -127,7 +126,8 @@ export const updateRole = async (
 
     const data: any = {};
     if (name !== undefined) data.name = name.trim();
-    if (description !== undefined) data.description = description?.trim() || null;
+    if (description !== undefined)
+      data.description = description?.trim() || null;
 
     // Si permissionIds est fourni → on remplace toutes les permissions
     if (permissionIds !== undefined) {
@@ -152,8 +152,10 @@ export const updateRole = async (
 
     return ResponseApi.success(res, "Rôle mis à jour", 200, role);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Rôle non trouvé", 404);
-    if (error.code === "P2002") return ResponseApi.error(res, "Ce nom de rôle existe déjà", 409);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Rôle non trouvé", 404);
+    if (error.code === "P2002")
+      return ResponseApi.error(res, "Ce nom de rôle existe déjà", 409);
     next(error);
   }
 };
@@ -168,7 +170,8 @@ export const deleteRole = async (
     await prisma.role.delete({ where: { id: Number(req.params.id) } });
     return ResponseApi.success(res, "Rôle supprimé", 200, null);
   } catch (error: any) {
-    if (error.code === "P2025") return ResponseApi.error(res, "Rôle non trouvé", 404);
+    if (error.code === "P2025")
+      return ResponseApi.error(res, "Rôle non trouvé", 404);
     next(error);
   }
 };

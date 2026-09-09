@@ -39,10 +39,11 @@ export interface Settings {
 }
 
 export enum PaymentMethod {
-  card = "card",
-  mobile_money = "mobile_money",
-  orange_money = "orange_money",
-  paypal = "paypal",
   cash = "cash",
-  others = "others",
+  mobile_money = "mobile_money",
+  bank_transfer = "bank_transfer",
+  orange_money = "orange_money",
+  check = "check",
+  card = "card",
+  other = "other",
 }

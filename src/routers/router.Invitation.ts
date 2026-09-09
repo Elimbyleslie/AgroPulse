@@ -10,11 +10,9 @@ import { Permission } from "../helpers/permissions.js";
 import { authorizePermission } from "../middlewares/auth.js";
 const router = Router();
 
-// Publique — utilisée par la page d'inscription
 router.get("/invitations/:token",
      getInvitationByToken);
 
-// Owner uniquement — utilisée par la page de gestion des invitations
 router.post(
   "/organizations/:organizationId/invitations",
   authenticate,

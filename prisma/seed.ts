@@ -23,13 +23,8 @@ const permissions = Object.values(Permission).map((code) => ({
 }));
 
 const rolePermissionsMap = {
-  // SUPER_ADMIN : propriétaire d'Agropulse, accès total, toutes organisations confondues
   SUPER_ADMIN: permissions.map((p) => p.code),
-
-  // ADMIN : assiste le SUPER_ADMIN au niveau plateforme (pas de gestion des rôles/permissions
-  // eux-mêmes, ni des abonnements/plans, réservés au SUPER_ADMIN)
   ADMIN: [
-    // Organisations (lecture/màj, pas de suppression ni création libre)
     Permission.READ_ORGANIZATION,
     Permission.UPDATE_ORGANIZATION,
 
@@ -414,6 +409,7 @@ const rolePermissionsMap = {
     // Audit / logs / notifications / paramètres / API (de son organisation)
     Permission.READ_AUDIT,
     Permission.READ_AUDITLOG,
+    Permission.CREATE_AUDIT,
 
     Permission.READ_NOTIFICATION,
     Permission.CREATE_NOTIFICATION,
@@ -464,7 +460,6 @@ const rolePermissionsMap = {
   // FARM_MANAGER : assiste le FARM_MANAGER (même logique que ADMIN assistant SUPER_ADMIN),
   // droits limités au travail quotidien sur les animaux, sans gérer la ferme elle seule.
   FARM_MANAGER: [
-    // Peut gérer (lire/modifier) sa ferme, mais pas la créer ni la supprimer
     Permission.READ_FARM,
     Permission.UPDATE_FARM,
 
@@ -486,6 +481,8 @@ const rolePermissionsMap = {
     Permission.CREATE_EQUIPMENT_MAINTENANCE,
     Permission.UPDATE_EQUIPMENT_MAINTENANCE,
     Permission.DELETE_EQUIPMENT_MAINTENANCE,
+
+    Permission.CREATE_AUDIT,
 
     Permission.READ_PEN,
     Permission.CREATE_PEN,
@@ -552,7 +549,6 @@ const rolePermissionsMap = {
     Permission.CREATE_FEEDING_PLAN,
     Permission.UPDATE_FEEDING_PLAN,
 
-    // Santé : lecture seule, la gestion appartient au VETERINARY
     Permission.READ_TREATMENT,
     Permission.READ_VACCINATION,
 
@@ -575,17 +571,47 @@ const rolePermissionsMap = {
     Permission.CREATE_ALERT,
     Permission.UPDATE_ALERT,
 
-    // Rapports : ne peut pas supprimer
+  
     Permission.READ_REPORT,
     Permission.CREATE_REPORT,
     Permission.UPDATE_REPORT,
 
     Permission.READ_FARM_USER,
     Permission.READ_NOTIFICATION,
+    Permission.CREATE_NOTIFICATION,
+    Permission.UPDATE_NOTIFICATION,
+    Permission.DELETE_NOTIFICATION,
+
+    Permission.READ_EXPENSE,
+    Permission.CREATE_EXPENSE,
+    Permission.UPDATE_EXPENSE,
+    Permission.DELETE_EXPENSE,
+
+    Permission.READ_EXPENSE_CATEGORY,
+    Permission.CREATE_EXPENSE_CATEGORY,
+    Permission.UPDATE_EXPENSE_CATEGORY,
+    Permission.DELETE_EXPENSE_CATEGORY,
+
+
+    Permission.READ_SALE,
+    Permission.CREATE_SALE,
+    Permission.UPDATE_SALE,
+    Permission.DELETE_SALE,
+
+    Permission.READ_PURCHASE,
+    Permission.CREATE_PURCHASE,
+    Permission.UPDATE_PURCHASE,
+    Permission.DELETE_PURCHASE,
+
+    Permission.READ_SALE_ITEM,
+    Permission.CREATE_SALE_ITEM,
+    Permission.UPDATE_SALE_ITEM,
+    Permission.DELETE_SALE_ITEM,
+
+    
   ],
 
-  // FARMER : assiste le FARM_MANAGER (même logique que ADMIN assistant SUPER_ADMIN),
-  // droits limités au travail quotidien sur les animaux, sans gérer la ferme elle-même.
+  
   FARMER: [
     Permission.READ_FARM,
 

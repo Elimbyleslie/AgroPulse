@@ -14,35 +14,50 @@ import { createPedigreeSchema, updatePedigreeSchema } from "../validations/repro
 
 const router = Router();
 
-router.get(
-    "/", authenticate,
-    authorizePermission([Permission.READ_PEDIGREE]),
-    getGenealogyTree
-);
 router.post(
-    "/",authenticate,
-    authorizePermission([Permission.CREATE_PEDIGREE]),
-    validator(createPedigreeSchema),
-    createPedigree
-);
-router.get(
-    "/:id",
-    authenticate,
-    authorizePermission([Permission.READ_PEDIGREE]),
-    getPedigreeById
-);
-router.put(
-    "/:id",
-    authenticate,
-    authorizePermission([Permission.UPDATE_PEDIGREE]),
-    validator(updatePedigreeSchema),
-    updatePedigree
-);
-router.delete(
-    "/:id",
-    authenticate,
-    authorizePermission([Permission.DELETE_PEDIGREE])
+  "/",
+  authenticate,
+  authorizePermission([Permission.CREATE_PEDIGREE]),
+  validator(createPedigreeSchema),
+  createPedigree
 );
 
-export default router ;
+router.get(
+  "/consanguinity/:animal1Id/:animal2Id",
+  authenticate,
+  authorizePermission([Permission.READ_PEDIGREE]),
+  checkConsanguinity
+);
+
+// Routes avec paramètres
+router.get(
+  "/:animalId/tree",
+  authenticate,
+  authorizePermission([Permission.READ_PEDIGREE]),
+  getGenealogyTree
+);
+
+router.get(
+  "/:animalId",
+  authenticate,
+  authorizePermission([Permission.READ_PEDIGREE]),
+  getPedigreeById
+);
+
+router.put(
+  "/:animalId",
+  authenticate,
+  authorizePermission([Permission.UPDATE_PEDIGREE]),
+  validator(updatePedigreeSchema),
+  updatePedigree
+);
+
+router.delete(
+  "/:animalId",
+  authenticate,
+  authorizePermission([Permission.DELETE_PEDIGREE]),
+  deletePedigree
+);
+
+export default router;
 

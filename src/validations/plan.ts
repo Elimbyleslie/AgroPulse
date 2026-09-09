@@ -1,12 +1,18 @@
 import yup from "yup";
 
+
 export const createPlanSchema = yup.object({
   name: yup.string().required().min(2),
-  price: yup.number().required().min(0),
-  durationDays: yup.number().required().min(1),
-  description: yup.string().required(),
-  billingCycle: yup.string().required(),
-  userLimit: yup.number().required().min(1),
-  storageLimit: yup.number().required().min(1),
-  animalLimit: yup.number().required().min(1),
+  code: yup.string().required().min(2),
+  description: yup.string(),
+  priceMonthly: yup.number().required(),
+  priceYearly: yup.number(),
+  currency: yup.string().required(),
+  maxFarms: yup.number(),
+  maxUsers: yup.number(),
+  maxAnimals: yup.number(),
+  features: yup.object(),
+  isActive: yup.boolean(),
+  isPublic: yup.boolean(),
+  sortOrder: yup.number(),
 });

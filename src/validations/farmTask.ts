@@ -12,7 +12,7 @@ export interface FarmTask {
 
 export enum TaskStatus {
   pending = "pending",
-  in_progress = "in_progress",
+  inProgress = "inProgress",
   completed = "completed",
   cancelled = "cancelled",
 }
@@ -21,7 +21,7 @@ export const createTaskSchema = yup.object({
   farmId: yup.number().required("Farm ID is required"),
   title: yup.string().required("Title is required"),
   description: yup.string().optional(),
-  assignedToUserId: yup.number().optional(),
+  assignedTo: yup.number().optional(),
   dueDate: yup.date().optional(),
   status: yup
     .mixed<TaskStatus>()
@@ -32,7 +32,7 @@ export const createTaskSchema = yup.object({
 export const updateTaskSchema = yup.object({
   title: yup.string().optional(),
   description: yup.string().optional(),
-  assignedToUserId: yup.number().optional(),
+  assignedTo: yup.number().optional(),
   dueDate: yup.date().optional(),
   status: yup.mixed<TaskStatus>().oneOf(Object.values(TaskStatus)).optional(),
 });

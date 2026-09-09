@@ -7,6 +7,9 @@ export const createAnimalVaccinationSchema = yup.object().shape({
   dateGiven: yup.date().nullable().optional(),
   nextDue: yup.date().nullable().optional(),
   administeredBy: yup.number().nullable().optional(),
+  inventoryId: yup.number().nullable().optional(),
+  quantityUsed: yup.number().nullable().optional(),
+  farmId: yup.number().required("farmId est obligatoire"),
 });
 
 export const updateAnimalVaccinationSchema = yup.object().shape({
@@ -16,4 +19,7 @@ export const updateAnimalVaccinationSchema = yup.object().shape({
   dateGiven: yup.date().nullable().optional(),
   nextDue: yup.date().nullable().optional(),
   administeredBy: yup.number().nullable().optional(),
+  inventoryId: yup.number().nullable().optional(),
+  quantityUsed: yup.number().nullable().optional(),
+  farmId: yup.number().nullable().optional(),
 });

@@ -19,7 +19,7 @@ export interface FeedStock {
   farmId: number;
   name: string;
   category?: FeedCategory;
-  quantity: number;           // Decimal → number dans TS (ou Prisma.Decimal)
+  quantity: number;        
   unit: string;
   minQuantity?: number;
   unitPrice?: number;

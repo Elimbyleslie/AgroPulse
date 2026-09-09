@@ -1,29 +1,70 @@
+// src/controllers/paymentController.ts
 import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
-import { Payment } from "../typages/payment.js";
 
 // ======================================================
-// CREATE Payment
+// CREATE Payment (ferme)
 // ======================================================
 export const createPayment = async (
-  req: Request<{}, {}, Payment>,
+  req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const { amount, method, reference } = req.body;
+    const {
+      farmId,
+      saleId,
+      purchaseId,
+      expenseId,
+      amount,
+      currency = "XOF",
+      method,
+      status = "COMPLETED",
+      reference,
+      notes,
+      paidAt,
+    } = req.body;
 
-    if (!amount || !method || !reference) {
+    if (!farmId || !amount || !method) {
       return ResponseApi.error(
         res,
-        "amount, method et reference sont obligatoires",
+        "farmId, amount et method sont obligatoires",
+        400,
+      );
+    }
+
+    // Au moins une cible
+    if (!saleId && !purchaseId && !expenseId) {
+      return ResponseApi.error(
+        res,
+        "Au moins un de saleId, purchaseId ou expenseId est requis",
         400,
       );
     }
 
     const payment = await prisma.payment.create({
-      data: req.body,
+      data: {
+        farmId: Number(farmId),
+        saleId: saleId ? Number(saleId) : null,
+        purchaseId: purchaseId ? Number(purchaseId) : null,
+        expenseId: expenseId ? Number(expenseId) : null,
+        amount: Number(amount),
+        currency,
+        method,
+        status,
+        reference: reference || null,
+        notes: notes || null,
+        paidAt: paidAt ? new Date(paidAt) : new Date(),
+        recordedById: (req as any).user?.id ?? null,
+      },
+      include: {
+        farm: true,
+        sale: true,
+        purchase: true,
+        expense: true,
+        recordedBy: { select: { id: true, name: true } },
+      },
     });
 
     return ResponseApi.success(res, "Paiement créé avec succès", 201, payment);
@@ -33,7 +74,7 @@ export const createPayment = async (
 };
 
 // ======================================================
-// GET ALL Payments (pagination + filtres)
+// GET ALL Payments
 // ======================================================
 export const getAllPayments = async (
   req: Request<
@@ -41,19 +82,20 @@ export const getAllPayments = async (
     {},
     {},
     {
+      farmId?: string;
+      saleId?: string;
       method?: string;
       status?: string;
       search?: string;
       page?: string;
       limit?: string;
-      organizationId?: string;
     }
   >,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const { method, status, search, organizationId } = req.query;
+    const { farmId, saleId, method, status, search } = req.query;
 
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
@@ -61,12 +103,11 @@ export const getAllPayments = async (
 
     const where: any = {};
 
-    // Filtres
-    if (organizationId) where.organizationId = Number(organizationId);
+    if (farmId) where.farmId = Number(farmId);
+    if (saleId) where.saleId = Number(saleId);
     if (method) where.method = method;
     if (status) where.status = status;
 
-    // Recherche sur référence ou d'autres champs
     if (search) {
       where.OR = [
         { reference: { contains: search, mode: "insensitive" } },
@@ -79,13 +120,13 @@ export const getAllPayments = async (
         where,
         skip,
         take: limit,
-        orderBy: { paidAt: "desc" },        // Mieux que par id
+        orderBy: { paidAt: "desc" },
         include: {
-          user: true,
+          farm: { select: { id: true, name: true } },
           sale: true,
-          organization: true,
-          farm: true,
           purchase: true,
+          expense: true,
+          recordedBy: { select: { id: true, name: true } },
         },
       }),
       prisma.payment.count({ where }),
@@ -98,7 +139,7 @@ export const getAllPayments = async (
         previousPage: page > 1 ? page - 1 : null,
         nextPage: page * limit < totalItems ? page + 1 : null,
         totalItems,
-        totalPage: Math.ceil(totalItems / limit),
+        totalPage: Math.ceil(totalItems / limit) || 1,
       },
     });
   } catch (error) {
@@ -124,8 +165,11 @@ export const getPaymentById = async (
     const payment = await prisma.payment.findUnique({
       where: { id: Number(id) },
       include: {
-        user: true,
+        farm: true,
         sale: true,
+        purchase: true,
+        expense: true,
+        recordedBy: { select: { id: true, name: true } },
       },
     });
 
@@ -143,13 +187,23 @@ export const getPaymentById = async (
 // UPDATE Payment
 // ======================================================
 export const updatePayment = async (
-  req: Request<{ id: string }, {}, Partial<Payment>>,
+  req: Request<{ id: string }>,
   res: Response,
   next: NextFunction,
 ) => {
   try {
     const { id } = req.params;
-    const data = req.body;
+    const {
+      amount,
+      method,
+      status,
+      reference,
+      notes,
+      paidAt,
+      saleId,
+      purchaseId,
+      expenseId,
+    } = req.body;
 
     if (!id || isNaN(Number(id))) {
       return ResponseApi.error(res, "ID invalide", 400);
@@ -157,7 +211,30 @@ export const updatePayment = async (
 
     const updated = await prisma.payment.update({
       where: { id: Number(id) },
-      data,
+      data: {
+        ...(amount !== undefined && { amount: Number(amount) }),
+        ...(method !== undefined && { method }),
+        ...(status !== undefined && { status }),
+        ...(reference !== undefined && { reference }),
+        ...(notes !== undefined && { notes }),
+        ...(paidAt !== undefined && {
+          paidAt: paidAt ? new Date(paidAt) : null,
+        }),
+        ...(saleId !== undefined && {
+          saleId: saleId ? Number(saleId) : null,
+        }),
+        ...(purchaseId !== undefined && {
+          purchaseId: purchaseId ? Number(purchaseId) : null,
+        }),
+        ...(expenseId !== undefined && {
+          expenseId: expenseId ? Number(expenseId) : null,
+        }),
+      },
+      include: {
+        farm: true,
+        sale: true,
+        recordedBy: { select: { id: true, name: true } },
+      },
     });
 
     return ResponseApi.success(res, "Paiement mis à jour", 200, updated);

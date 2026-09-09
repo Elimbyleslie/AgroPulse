@@ -1,38 +1,106 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
-import { CreateFeedStockInput, UpdateFeedStockInput } from "../typages/feedStock.js";
-
+import {
+  CreateFeedStockInput,
+  UpdateFeedStockInput,
+} from "../typages/feedStock.js";
+import { PaymentMethod } from "../typages/payment.js";
 export const createFeedStock = async (
   req: Request<{}, {}, CreateFeedStockInput>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
-    const { feedUsages, ...feedStockBody } = req.body;
-    const stock = await prisma.feedStock.create({
-      // cast to any to avoid TS issues with nested create input shapes from request body
-      data: {
-        ...feedStockBody,
-        totalValue: feedStockBody.totalValue ?? (feedStockBody.quantity * (feedStockBody.unitPrice || 0)),
-        ...(feedUsages ? { feedUsages: { create: feedUsages } } : {}),
-      } as any,
-      include: {
-        farm: { select: { id: true, name: true } },
-        supplier: { select: { id: true, name: true } },
-      },
+    const {
+      feedUsages,
+      paymentMethod,
+      paymentReference,
+      paymentNotes,
+      ...feedStockBody
+    } = req.body as any;
+
+    const quantity = Number(feedStockBody.quantity);
+    const unitPrice =
+      feedStockBody.unitPrice != null
+        ? Number(feedStockBody.unitPrice)
+        : undefined;
+    const totalValue =
+      feedStockBody.totalValue != null
+        ? Number(feedStockBody.totalValue)
+        : unitPrice != null
+          ? quantity * unitPrice
+          : undefined;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const stock = await tx.feedStock.create({
+        data: {
+          ...feedStockBody,
+          quantity,
+          ...(unitPrice != null && { unitPrice }),
+          ...(totalValue != null && { totalValue }),
+          ...(feedUsages ? { feedUsages: { create: feedUsages } } : {}),
+        } as any,
+        include: {
+          farm: { select: { id: true, name: true } },
+          supplier: { select: { id: true, name: true } },
+        },
+      });
+
+      let payment = null;
+      if (unitPrice != null && totalValue != null && totalValue > 0) {
+        payment = await tx.payment.create({
+          data: {
+            farmId: stock.farmId,
+            feedStockId: stock.id,
+            amount: totalValue,
+            method: (paymentMethod as PaymentMethod) || PaymentMethod.cash,
+            status: "COMPLETED",
+            reference: paymentReference || null,
+            notes: paymentNotes || `Achat stock : ${stock.name}`,
+            paidAt: new Date(),
+            recordedById: (req as any).user?.id ?? null,
+          } as any,
+        });
+
+        await tx.expense.create({
+          data: {
+            notes: paymentNotes || `Achat stock : ${stock.name}`,
+            date: new Date(),
+            amount: totalValue,
+            totalAmount: totalValue,
+            farmId: stock.farmId,
+            category: "FEED",
+            supplierId: stock.supplierId,
+            paymentMethod: paymentMethod || "cash",
+            createdById: (req as any).user?.id ?? null,
+          } as any,
+        });
+      }
+
+      return { ...stock, payments: payment ? [payment] : [] };
     });
 
-    return ResponseApi.success(res, "Stock d'aliment créé avec succès", 201, stock);
-  } catch (error) {
+    return ResponseApi.success(
+      res,
+      "Stock d'aliment créé avec succès",
+      201,
+      result,
+    );
+  } catch (error: any) {
     next(error);
   }
 };
 
 export const getAllFeedStocks = async (
-  req: Request<{}, {}, {}, { farmId?: string; page?: string; limit?: string; status?: string }>,
+  req: Request<
+    {},
+    {},
+    {},
+    { farmId?: string; page?: string; limit?: string; status?: string }
+  >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { farmId, page, limit, status } = req.query;
@@ -76,7 +144,7 @@ export const getAllFeedStocks = async (
 export const getFeedStockById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const stock = await prisma.feedStock.findUnique({
@@ -101,23 +169,96 @@ export const getFeedStockById = async (
 export const updateFeedStock = async (
   req: Request<{ id: string }, {}, UpdateFeedStockInput>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
-    const updated = await prisma.feedStock.update({
-      where: { id: Number(req.params.id) },
-      data: req.body as any,
-      include: {
-        farm: true,
-        supplier: true,
-      },
+    const id = Number(req.params.id);
+    const { paymentMethod, paymentReference, paymentNotes, ...updateBody } =
+      req.body as any;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.feedStock.findUnique({ where: { id } });
+      if (!existing) throw new Error("NOT_FOUND");
+
+      const quantity =
+        updateBody.quantity !== undefined
+          ? Number(updateBody.quantity)
+          : Number(existing.quantity);
+      const unitPrice =
+        updateBody.unitPrice !== undefined
+          ? Number(updateBody.unitPrice)
+          : existing.unitPrice != null
+            ? Number(existing.unitPrice)
+            : undefined;
+      const totalValue =
+        updateBody.totalValue !== undefined
+          ? Number(updateBody.totalValue)
+          : unitPrice != null
+            ? quantity * unitPrice
+            : undefined;
+
+      const updated = await tx.feedStock.update({
+        where: { id },
+        data: {
+          ...updateBody,
+          ...(unitPrice != null && { unitPrice }),
+          ...(totalValue != null && { totalValue }),
+        } as any,
+        include: { farm: true, supplier: true },
+      });
+
+      let payment = null;
+      if (unitPrice != null && totalValue != null && totalValue > 0) {
+        const existingPayment = await tx.payment.findFirst({
+          where: { feedStockId: id } as any,
+        });
+
+        if (existingPayment) {
+          payment = await tx.payment.update({
+            where: { id: existingPayment.id },
+            data: {
+              amount: totalValue,
+              ...(paymentMethod && { method: paymentMethod }),
+              ...(paymentReference !== undefined && {
+                reference: paymentReference || null,
+              }),
+              ...(paymentNotes !== undefined && {
+                notes: paymentNotes || null,
+              }),
+            } as any,
+          });
+        } else {
+          payment = await tx.payment.create({
+            data: {
+              farmId: updated.farmId,
+              feedStockId: id,
+              amount: totalValue,
+              totalAmount:totalValue,
+              method: PaymentMethod.cash,
+              status: "COMPLETED",
+              reference: paymentReference || null,
+              notes: paymentNotes || `Réapprovisionnement : ${updated.name}`,
+              paidAt: new Date(),
+              createdById: (req as any).user?.id ?? null,
+            } as any,
+          });
+        }
+      }
+
+      return { ...updated, payments: payment ? [payment] : [] };
     });
 
-    return ResponseApi.success(res, "Stock mis à jour avec succès", 200, updated);
+    return ResponseApi.success(
+      res,
+      "Stock mis à jour avec succès",
+      200,
+      result,
+    );
   } catch (error: any) {
-    if (error.code === "P2025") {
+    if (error.message === "NOT_FOUND" || error.code === "P2025") {
       return ResponseApi.error(res, "Stock non trouvé", 404);
     }
+
     next(error);
   }
 };
@@ -125,7 +266,7 @@ export const updateFeedStock = async (
 export const deleteFeedStock = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const deleted = await prisma.feedStock.delete({

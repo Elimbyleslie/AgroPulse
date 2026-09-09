@@ -23,6 +23,7 @@ const feedingPlanInclude = {
 } as const;
 
 // ── CREATE ────────────────────────────────────────────────────────────────────
+// ── CREATE ────────────────────────────────────────────────────────────────────
 export const createFeedingPlan = async (
   req: Request,
   res: Response,
@@ -34,7 +35,7 @@ export const createFeedingPlan = async (
       lotId,
       herdId,
       penId,
-      feedStockId,        // ← Correspond au modèle
+      feedStockId,
       quantity,
       unit,
       frequency,
@@ -45,13 +46,25 @@ export const createFeedingPlan = async (
       notes,
     } = req.body;
 
+
+    if (feedStockId === undefined || feedStockId === null || feedStockId === "" || Number.isNaN(Number(feedStockId))) {
+      return ResponseApi.error(res, "feedStockId est obligatoire et doit être un nombre valide", 400);
+    }
+    if (!quantity || !unit || !frequency || !startDate || !farmId || !userId) {
+      return ResponseApi.error(
+        res,
+        "quantity, unit, frequency, startDate, farmId et userId sont obligatoires",
+        400,
+      );
+    }
+
     const plan = await prisma.feedingPlan.create({
       data: {
         animalId: animalId ? Number(animalId) : null,
         lotId: lotId ? Number(lotId) : null,
         herdId: herdId ? Number(herdId) : null,
         penId: penId ? Number(penId) : null,
-        feedStockId: Number(feedStockId),   // ← Important
+        feedStockId: Number(feedStockId),
         quantity: Number(quantity),
         unit,
         frequency,
@@ -66,6 +79,9 @@ export const createFeedingPlan = async (
 
     return ResponseApi.success(res, "Plan de ration créé avec succès", 201, plan);
   } catch (error: any) {
+    if (error.code === "P2003") {
+      return ResponseApi.error(res, "feedStockId, farmId ou userId invalide (référence introuvable)", 400);
+    }
     console.error("Create FeedingPlan Error:", error);
     next(error);
   }
@@ -196,7 +212,7 @@ export const distributeFeeding = async (req: Request, res: Response, next:NextFu
       const plan = await tx.feedingPlan.findUnique({
         where: { id: Number(id) },
         include: {
-          feedStock: true,           // ← Important
+          feedStock: true,           
           animal: true,
           lot: { include: { _count: { select: { animals: true } } } },
           herd: { include: { _count: { select: { animals: true } } } },

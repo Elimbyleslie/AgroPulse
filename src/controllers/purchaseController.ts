@@ -22,7 +22,7 @@ export const createPurchase = async (req: Request, res: Response, next: NextFunc
           organizationId: req.user?.defaultOrganizationId,
           amount: totalAmount,
           method: rest.paymentMethod || "cash",
-          status: PaymentStatus.SUCCESS,
+          status: PaymentStatus.COMPLETED,
           reference: `PURCHASE-${purchase.id}`,
           userId: req.user?.id,
         },

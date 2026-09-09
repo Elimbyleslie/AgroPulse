@@ -24,14 +24,16 @@ export const createExpense = async (
       date: date ? new Date(date) : new Date(),
       amount: Number(amount),
       farmId: Number(farmId),
-      category,                    // ExpenseCategory enum
+      category,                   
       supplierId: supplierId ? Number(supplierId) : null,
       paymentMethod: paymentMethod || "CASH",
       ...rest
     };
 
+    const { id, createdAt, updatedAt, createdBy, ...dataToCreate } = expenseData;
+
     const expense = await prisma.expense.create({
-      data: expenseData,
+      data: dataToCreate,
       include: {
         farm: true,
         supplier: true,
@@ -147,9 +149,11 @@ export const updateExpense = async (
   next: NextFunction
 ) => {
   try {
+    const { id, createdAt, updatedAt, createdBy, ...dataToUpdate } = req.body;
+    
     const updated = await prisma.expense.update({
       where: { id: Number(req.params.id) },
-      data: req.body,
+      data: dataToUpdate,
       include: {
         farm: true,
         supplier: true,

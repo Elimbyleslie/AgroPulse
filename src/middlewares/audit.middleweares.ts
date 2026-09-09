@@ -1,70 +1,125 @@
 import { Request, Response, NextFunction } from "express";
 import { logAction } from "../controllers/audit.controller.js";
 import { AnyARecord } from "dns";
-
-export const auditMiddleware = (tableCible: string) => {
+/**
+ * Middleware d'audit automatique
+ * @param tableTarget 
+ */
+export const auditMiddleware = (tableTarget: string) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    const originalSend = res.send;
-    const userId = (req as any).user?.id_user;
-    const ipAddress = req.ip || req.connection.remoteAddress;
+    // Sauvegarde des méthodes originales
+    const originalJson = res.json.bind(res);
+    const originalSend = res.send.bind(res);
 
-    // Intercepter la réponse pour logger après l'action
-    res.send = function (data: any): Response {
+    const userId = (req as any).user?.id ?? null;
+    const organizationId = (req as any).user?.organizationId ?? null;
+    const ipAddress = req.ip || req.socket?.remoteAddress || null;
+    const userAgent = req.headers["user-agent"] || null;
+
+    const doLog = (statusCode: number) => {
+      if (statusCode < 200 || statusCode >= 300) return;
+
       const action = getActionFromMethod(req.method);
-      const idCible = getTargetId(req);
+      const recordId = getTargetId(req);
+      const farmId = getFarmIdFromRequest(req);
 
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        // Logger l'action en arrière-plan
-        logAction({
-          utilisateur_id: userId,
-          ferme_id: getFermeIdFromRequest(req),
-          table_cible: tableCible,
-          id_cible: idCible,
-          action: action,
-          anciennes_valeurs: getOldValues(req.method, data),
-          nouvelles_valeurs: getNewValues(req.method, req.body),
-          ip_address: ipAddress,
-        }).catch(console.error);
-      }
+      logAction({
+        userId,
+        organizationId,
+        farmId,
+        tableTarget,
+        action,
+        recordId,
+        description: `${action} on ${tableTarget}${recordId ? ` #${recordId}` : ""}`,
+        ipAddress,
+        userAgent,
+      }).catch((err) => {
+        console.error("Erreur auditMiddleware:", err);
+      });
+    };
 
-      return originalSend.call(this, data);
+    res.json = function (body: any): Response {
+      doLog(res.statusCode || 200);
+      return originalJson(body);
+    };
+
+    res.send = function (body: any): Response {
+      doLog(res.statusCode || 200);
+      return originalSend(body);
     };
 
     next();
   };
 };
 
-// Helper functions
-const getActionFromMethod = (method: string): string => {
-  const actions: { [key: string]: string } = {
-    GET: "consultation",
-    POST: "creation",
-    PUT: "modification",
-    PATCH: "modification",
-    DELETE: "suppression",
-  };
-  return actions[method] || "autre";
-};
+// ====================== HELPERS ======================
 
-const getTargetId = (req: Request): number | undefined => {
-  if (req.params.id) {
-    return Number(req.params.id);
+function getActionFromMethod(method: string): string {
+  switch (method.toUpperCase()) {
+    case "POST":
+      return "CREATE";
+    case "PUT":
+    case "PATCH":
+      return "UPDATE";
+    case "DELETE":
+      return "DELETE";
+    case "GET":
+      return "READ";
+    default:
+      return method.toUpperCase();
   }
-  return undefined;
-};
+}
 
-const getFermeIdFromRequest = (req: Request): number | undefined => {
+function getTargetId(req: Request): number | null {
+  if (req.params.id) {
+    const id = Number(req.params.id);
+    return isNaN(id) ? null : id;
+  }
+
+  if (req.body?.id) {
+    const id = Number(req.body.id);
+    return isNaN(id) ? null : id;
+  }
+
+  return null;
+}
+
+function getFarmIdFromRequest(req: Request): number | null {
+
+  if (req.body?.farmId) {
+    const id = Number(req.body.farmId);
+    return isNaN(id) ? null : id;
+  }
+
+  if (req.query?.farmId) {
+    const id = Number(req.query.farmId);
+    return isNaN(id) ? null : id;
+  }
+
+  if (req.params?.farmId) {
+    const id = Number(req.params.farmId);
+    return isNaN(id) ? null : id;
+  }
+
+  if ((req as any).user?.farmId) {
+    return (req as any).user.farmId;
+  }
+
+  return null;
+}
+
+export const getFermeIdFromRequest = (req: Request): number | undefined => {
   return req.body.ferme_id || undefined;
 };
 
-const getOldValues = (method: string, data: any): any => {
+export const getOldValues = (method: string, data: any): any => {
   if (method === "PUT" || method === "PATCH") {
     return null;
   }
   return null;
 };
 
-const getNewValues = (method: string, body: any): any => {
+export const getNewValues = (method: string, body: any): any => {
   if (method === "POST" || method === "PUT" || method === "PATCH") {
     return body;
   }

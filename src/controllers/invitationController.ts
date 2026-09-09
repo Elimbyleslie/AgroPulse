@@ -2,27 +2,20 @@ import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import Utilities from "../helpers/utilities.js";
 
-export const createInvitation = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => {
+
+export const createInvitation = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const organizationId = Number(req.params.organizationId);
     const { farmId, roleId, expiresAt, maxUses } = req.body;
 
-    const organization = await prisma.organization.findUnique({
-      where: { id: organizationId },
-    });
+    const organization = await prisma.organization.findUnique({ where: { id: organizationId } });
     if (!organization) {
       return res.status(404).json(Utilities.errorResponse(404, "Organisation introuvable."));
     }
-
-    // Seul le owner peut générer un lien
     if (organization.ownerId !== req.user?.id) {
       return res.status(403).json(Utilities.errorResponse(403, "Action réservée au propriétaire."));
     }
-    console.log(organization.ownerId ,req.user.id)
+
     if (farmId) {
       const farm = await prisma.farm.findUnique({ where: { id: Number(farmId) } });
       if (!farm || farm.organizationId !== organizationId) {
@@ -33,17 +26,15 @@ export const createInvitation = async (
     const invitation = await prisma.invitation.create({
       data: {
         organizationId,
-        farmId: farmId ? Number(farmId) : undefined,
-        roleId: roleId ? Number(roleId) : undefined,
+        farmId: farmId ? Number(farmId) : undefined, 
+        roleId: Number(roleId),
         createdBy: req.user!.id,
         expiresAt: expiresAt ? new Date(expiresAt) : undefined,
         maxUses: maxUses === null ? null : (maxUses ? Number(maxUses) : 1),
       },
     });
 
-    return res.status(201).json(
-      Utilities.successReponse(201, "Lien d'invitation généré.", invitation),
-    );
+    return res.status(201).json(Utilities.successReponse(201, "Lien d'invitation généré.", invitation));
   } catch (error) {
     next(error);
   }

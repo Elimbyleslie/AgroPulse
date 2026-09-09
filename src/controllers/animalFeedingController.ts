@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 import { AnimalFeeding } from "../typages/animalFeeding.js";
+import { HealthEventType } from "../typages/animalHealthRecords.js";
 
 
 export const createAnimalFeeding = async (
@@ -16,6 +17,22 @@ export const createAnimalFeeding = async (
         animal: { select: { id: true, name: true } },
         lot: { select: { id: true, name: true } },
         user: { select: { id: true, name: true } },
+        inventory: { select: { id: true, name: true, category: true } },
+      },
+    });
+
+    //create a health record for the feeding event
+    await prisma.animalHealthRecord.create({
+      data: {
+        eventType: HealthEventType.OTHER, 
+        referenceType: "FEEDING_RECORD",
+        referenceId: animalFeeding.id,
+        animalId: animalFeeding.animalId,
+        eventDate: animalFeeding.date,
+        endDate: animalFeeding.date,
+        title: "Distribution alimentaire enregistrée",
+        recordedById: (req as any).user?.id ?? null,
+      notes: `Distribution de ${animalFeeding.quantity} ${animalFeeding.unit} de ${animalFeeding.inventory} à l'animal ${animalFeeding.animal.name}.`,
       },
     });
 

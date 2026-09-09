@@ -7,7 +7,7 @@ import fs from "fs";
 import path from "path";
 import { verifyQr, signQr } from "../helpers/qrcodeSignature.js";
 import db from '../config/db.js';
-
+import { logAction } from "./audit.controller.js";
 
 export const validateQr = async (req: Request, res: Response) => {
   const { animalId, signature } = req.body;
@@ -123,6 +123,20 @@ export const createAnimal = async (
     const updatedAnimal = await prisma.animal.update({
       where: { id: animal.id },
       data: { qrcode: qrValue },
+    });
+
+
+    await logAction({
+      userId: req.user?.id,
+      organizationId: req.user?.defaultOrganizationId, 
+      farmId: animal.farmId,
+      tableTarget: "animals",
+      action: "CREATE",
+      recordId: animal.id,
+      description: `Création de l'animal ${animal.name || animal.id}`,
+      newData: animal,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
     });
 
     return ResponseApi.success(res, "Animal créé avec succès", 201, {
@@ -297,7 +311,6 @@ export const updateAnimal = async (req:Request, res:Response) => {
     const { id } = req.params;
     const { name, farmId, speciesId, breedId, lotId, gender, birthDate, weight, status,photo } = req.body;
 
-    // Helper pour convertir les IDs en relations Prisma
     const connectRelation = (id:number) => id  && id !== 0 
       ? { connect: { id: Number(id) } } 
       : undefined;
@@ -305,6 +318,19 @@ export const updateAnimal = async (req:Request, res:Response) => {
     const disconnectRelation = (id:number) => !id || id === 0
       ? { disconnect: true }
       : undefined;
+
+
+      const animalId = Number(req.params.id);
+
+    // 1. Récupérer les anciennes valeurs
+    const oldAnimal = await prisma.animal.findUnique({
+      where: { id: animalId },
+    });
+
+    if (!oldAnimal) {
+      return ResponseApi.error(res, "Animal non trouvé", 404);
+    }
+
 
     const updateData = {
       name,
@@ -335,6 +361,20 @@ export const updateAnimal = async (req:Request, res:Response) => {
       }
     });
 
+    await logAction({
+      userId: (req as any).user?.id,
+      organizationId: (req as any).user?.organizationId,
+      farmId: updatedAnimal.farmId,
+      tableTarget: "animals",
+      action: "UPDATE",
+      recordId: updatedAnimal.id,
+      description: `Modification de l'animal ${updatedAnimal.name ||updatedAnimal.id }`,
+      previousData: oldAnimal,
+      newData: updatedAnimal,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
     res.status(200).json({
       meta: { message: "Animal mis à jour avec succès", status: 200 },
       data: updatedAnimal,
@@ -348,35 +388,38 @@ export const updateAnimal = async (req:Request, res:Response) => {
   }
 };
 // DELETE
-export const deleteAnimal = async (
-  req: Request<{ id: string }>,
-  res: Response,
-  next: NextFunction,
-) => {
+// ========== DELETE ANIMAL ==========
+export const deleteAnimal = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { id } = req.params;
-    if (!id || isNaN(Number(id)))
-      return ResponseApi.error(res, "ID invalide", 400);
+    const animalId = Number(req.params.id);
+
     const animal = await prisma.animal.findUnique({
-      where: { id: Number(id) },
+      where: { id: animalId },
     });
-    if (animal?.photo) {
-      const photoPath = path.join(__dirname, "../../", animal.photo);
-      if (fs.existsSync(photoPath)) {
-        fs.unlinkSync(photoPath);
-      }
+
+    if (!animal) {
+      return ResponseApi.error(res, "Animal non trouvé", 404);
     }
 
-    const deleted = await prisma.animal.delete({ where: { id: Number(id) } });
-    return ResponseApi.success(
-      res,
-      "Animal supprimé avec succès",
-      200,
-      deleted,
-    );
-  } catch (error: any) {
-    if (error.code === "P2025")
-      return ResponseApi.error(res, "Animal non trouvé", 404);
+    await prisma.animal.delete({
+      where: { id: animalId },
+    });
+
+    // Logger la suppression
+    await logAction({
+      userId: (req as any).user?.id,
+      farmId: animal.farmId,
+      tableTarget: "animals",
+      action: "DELETE",
+      recordId: animalId,
+      description: `Suppression de l'animal ${animal.name || animalId}`,
+      previousData: animal,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
+
+    return ResponseApi.success(res, "Animal supprimé", 200, animal);
+  } catch (error) {
     next(error);
   }
 };

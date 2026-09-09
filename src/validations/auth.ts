@@ -34,6 +34,7 @@ export const registerUserValidation = yup.object().shape({
     .required(),
   phone: yup.string().required("phone is required"),
   photo: yup.mixed().nullable(),
+  invitationToken: yup.string().nullable().optional(), // 🔧 ajouté
 });
 
 export const optValidation = yup.object({

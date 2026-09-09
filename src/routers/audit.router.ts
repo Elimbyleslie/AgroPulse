@@ -1,54 +1,64 @@
-import express from "express";
+import { Router } from "express";
 import {
-  getAllAuditLogs,
-  getAuditLogById,
+  getAllAudits,
+  getAuditById,
+  searchAudits,
   getAuditStats,
-  searchAuditLogs,
-  exportAuditLogs,
   getRecentActivities,
+  exportAudits,
 } from "../controllers/audit.controller.js";
 import { authenticate, authorizePermission } from "../middlewares/auth.js";
 import { Permission } from "../helpers/permissions.js";
 
-const router = express.Router();
+const router = Router();
 
-// Routes accessibles à tous les utilisateurs authentifiés
+
+
 router.get(
-  "/stats",
+  "/",
   authenticate,
   authorizePermission([Permission.READ_AUDIT]),
-  getAuditStats,
+  getAllAudits
 );
-router.get(
-  "/recent",
-  authenticate,
-  authorizePermission([Permission.READ_AUDIT]),
-  getRecentActivities,
-);
-// Routes avec restrictions (admin seulement pour certains endpoints)
-router.get(
-  "/auditlogs",
-  authenticate,
-  authorizePermission([Permission.READ_AUDIT]),
-  getAllAuditLogs,
-);
+
+// Recherche
 router.get(
   "/search",
   authenticate,
   authorizePermission([Permission.READ_AUDIT]),
-  searchAuditLogs,
+  searchAudits
 );
+
+// Statistiques
+router.get(
+  "/stats",
+  authenticate,
+  authorizePermission([Permission.READ_AUDIT]),
+  getAuditStats
+);
+
+// Activités récentes
+router.get(
+  "/recent",
+  authenticate,
+  authorizePermission([Permission.READ_AUDIT]),
+  getRecentActivities
+);
+
+// Export (JSON ou CSV)
 router.get(
   "/export",
   authenticate,
   authorizePermission([Permission.READ_AUDIT]),
-  exportAuditLogs,
+  exportAudits
 );
+
+// Récupérer un audit par ID
 router.get(
   "/:id",
   authenticate,
   authorizePermission([Permission.READ_AUDIT]),
-  getAuditLogById,
+  getAuditById
 );
 
 export default router;

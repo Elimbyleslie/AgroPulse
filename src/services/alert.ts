@@ -1,8 +1,8 @@
 import prisma from "../models/prismaClient.js";
 import { AlertStatus } from "../../generated/prisma/enums.js";
+import { min } from "date-fns";
 
 // ─── Seuil stock alimentaire critique (en kg/unité) ───────────────────────────
-const FEED_STOCK_CRITICAL_THRESHOLD = 50;
 
 async function alertAlreadyExists(
   farmId: number,
@@ -146,7 +146,7 @@ export async function triggerAlertForAnimalDeath(animalDeathId: number): Promise
 export async function checkCriticalFeedStocks(): Promise<void> {
   const criticalStocks = await prisma.inventory.findMany({
     where: {
-      quantity: { lte: FEED_STOCK_CRITICAL_THRESHOLD },
+      minQuantity: { not: null }, 
     },
     include: {
       farm: true,
@@ -154,10 +154,13 @@ export async function checkCriticalFeedStocks(): Promise<void> {
   });
 
   for (const stock of criticalStocks) {
+    if (stock.minQuantity == null) continue;
+    if (Number(stock.quantity) > Number(stock.minQuantity)) continue;
+
     await createAlertIfNotExists({
       farmId:  stock.farmId,
       title:   `Stock critique — ${stock.name}`,
-      message: `Le stock de "${stock.name}" est critique : ${stock.quantity} ${stock.unit} restants. Seuil d'alerte : ${FEED_STOCK_CRITICAL_THRESHOLD} ${stock.unit}. Veuillez réapprovisionner.`,
+      message: `Le stock de "${stock.name}" est critique : ${stock.quantity} ${stock.unit} restants. Seuil d'alerte : ${stock.minQuantity} ${stock.unit}. Veuillez réapprovisionner.`,
     });
   }
 }
@@ -184,11 +187,10 @@ export async function triggerAlertForEquipmentOutOfService(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CRON JOB — à appeler tous les jours à minuit
-// Regroupe tous les checks automatiques périodiques
+// CRON JOB — à appeler tous les 15h minutes
 // ─────────────────────────────────────────────────────────────────────────────
-export async function runDailyAlertChecks(): Promise<void> {
-  console.log("[AlertService] Lancement des vérifications quotidiennes...");
+export async function runPeriodicAlertChecks(): Promise<void> {
+  console.log("[AlertService] Lancement des vérifications périodiques...");
   try {
     await checkOverdueVaccinations();
     console.log("[AlertService] ✅ Vaccins vérifiés");

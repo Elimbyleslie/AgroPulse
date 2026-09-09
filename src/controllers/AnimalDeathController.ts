@@ -3,7 +3,7 @@ import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 import { AnimalDeath } from "../typages/animalDeath.js";
 import { triggerAlertForAnimalDeath  } from "../services/alert.js";
-
+import { HealthEventType } from "../typages/animalHealthRecords.js";
 // ======================================================
 // CREATE Animal Death
 // ======================================================
@@ -15,6 +15,21 @@ export const createAnimalDeath = async (
   try {
     const death = await prisma.animalDeath.create({ data: req.body });
     await triggerAlertForAnimalDeath(death.id);
+    //create a health record for the death event
+    await prisma.animalHealthRecord.create({
+      data: {
+        eventType: HealthEventType.DEATH,
+        referenceType: "DEATH_RECORD",
+        referenceId: death.id,
+        animalId: death.animalId,
+        eventDate: death.dateOfDeath as Date,  
+      endDate: death.dateOfDeath,
+        title: "Décès enregistré",
+        recordedById: (req as any).user?.id ?? null,
+        notes: death.cause ? `Cause du décès : ${death.cause}` : undefined ,
+
+      },
+    });
     
     return ResponseApi.success(res, "Décès enregistré", 201, death);
   } catch (error) {

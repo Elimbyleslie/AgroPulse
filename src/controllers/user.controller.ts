@@ -1,11 +1,13 @@
 import { Request, Response, NextFunction } from "express";
-import prisma from "../models/prismaClient.js"; // Assurez-vous que le chemin est correct
+import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 import bcrypt from "bcryptjs";
 import { logAction } from "./audit.controller.js";
 import { User } from "../typages/user.js";
+import { Role } from "../typages/role.js";
 
 // 🧩 Récupérer tous les utilisateurs
+
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -14,23 +16,97 @@ export const getAllUsers = async (req: Request, res: Response) => {
     const status = (req.query.status as string) || undefined;
     const farmId = req.query.farmId ? Number(req.query.farmId) : undefined;
 
+    // ── Utilisateur connecté ──────────────────────────────────────────────
+    const currentUser = (req as any).user;
+    if (!currentUser) {
+      return res.status(401).json({ message: "Non authentifié" });
+    }
+
+    const currentRoles: string[] =
+      currentUser.roles?.map((r: any) =>
+        typeof r === "string" ? r : r.role?.name || r.name,
+      ) || [];
+
+    const isSuperAdmin = currentRoles.includes(Role.SUPER_ADMIN);
+    const isAdmin = currentRoles.includes(Role.ADMIN);
+    const isOrgOwner = currentRoles.includes(Role.ORGANIZATION_OWNER);
+
+    // Seuls Super Admin, Admin et Organization Owner peuvent accéder à cette liste
+    if (!isSuperAdmin && !isAdmin && !isOrgOwner) {
+      return res.status(403).json({
+        message:
+          "Accès refusé. Vous n'avez pas les droits pour voir les utilisateurs.",
+      });
+    }
+
+    // ── Construction du filtre ────────────────────────────────────────────
     const where: any = {};
+
+    // Filtres communs
     if (search) {
       where.OR = [
-        { name: { contains: search} },
-        { email: { contains: search} },
-        { userName: { contains: search} },
+        { name: { contains: search, mode: "insensitive" } },
+        { email: { contains: search, mode: "insensitive" } },
+        { userName: { contains: search, mode: "insensitive" } },
       ];
     }
     if (status) where.status = status;
     if (farmId) where.defaultFarmId = farmId;
 
+    // ── Restriction par organisation pour l'Organization Owner ────────────
+    if (isOrgOwner && !isSuperAdmin && !isAdmin) {
+      // Récupérer les IDs des organisations que l'utilisateur possède
+      const ownedOrgs = await prisma.organization.findMany({
+        where: { ownerId: currentUser.id || currentUser.id_user },
+        select: { id: true },
+      });
+
+      const orgIds = ownedOrgs.map((org) => org.id);
+
+      if (orgIds.length === 0) {
+        // Aucune organisation → retourne une liste vide
+        return res.json({
+          data: [],
+          pagination: {
+            currentPage: page,
+            previousPage: null,
+            nextPage: null,
+            totalItems: 0,
+            totalPages: 1,
+          },
+        });
+      }
+
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { defaultOrganizationId: { in: orgIds } },
+            { memberOrganizations: { some: { id: { in: orgIds } } } },
+            {
+              farmUsers: { some: { farm: { organizationId: { in: orgIds } } } },
+            },
+          ],
+        },
+      ];
+    }
+
+    // ── Requête ───────────────────────────────────────────────────────────
     const [users, totalItems] = await Promise.all([
       prisma.user.findMany({
         where,
         include: {
-          roles: true,
-          memberOrganizations: true,
+          roles: {
+            include: {
+              role: true,
+            },
+          },
+          memberOrganizations: {
+            select: { id: true, name: true },
+          },
+          ownedOrganizations: {
+            select: { id: true, name: true },
+          },
         },
         skip: (page - 1) * limit,
         take: limit,
@@ -41,7 +117,7 @@ export const getAllUsers = async (req: Request, res: Response) => {
 
     const totalPages = Math.max(1, Math.ceil(totalItems / limit));
 
-    res.json({
+    return res.json({
       data: users,
       pagination: {
         currentPage: page,
@@ -52,7 +128,8 @@ export const getAllUsers = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    res.status(500).json({
+    console.error("getAllUsers error:", error);
+    return res.status(500).json({
       message: "Erreur lors de la récupération des utilisateurs",
       error,
     });
@@ -72,7 +149,7 @@ export const getUserById = async (req: Request, res: Response) => {
       where: { id: Number(id) },
       include: {
         roles: true,
-       memberOrganizations: true
+        memberOrganizations: true,
       },
     });
     if (!user)
@@ -211,13 +288,15 @@ export const deleteUser = async (
     const deleted = await prisma.user.delete({ where: { id: Number(id) } });
 
     await logAction({
-      utilisateur_id: Number(id),
-      table_cible: "utilisateurs",
-      id_cible: Number(id),
-      action: "suppression_utilisateur",
-      anciennes_valeurs: userExist,
-      nouvelles_valeurs: deleted,
-      ip_address: req.ip,
+      userId: (req as any).user?.id,
+      farmId: deleted.defaultFarmId,
+      tableTarget: "animals",
+      action: "DELETE",
+      recordId: deleted.id,
+      description: `Suppression de l'animal ${deleted.name || deleted.id}`,
+      previousData: deleted,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
     });
 
     res.json({ message: "Utilisateur supprimé", deleted });
@@ -249,24 +328,23 @@ export const getUserProfile = async (req: Request, res: Response) => {
     }
 
     res.status(200).json({
-     data: {
-      user:{
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-      status: user.status,
-      roles: user.roles,
-      emailVerified: user.emailVerified, //
-      }
-     }
+      data: {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          status: user.status,
+          roles: user.roles,
+          emailVerified: user.emailVerified, //
+        },
+      },
     });
   } catch (error) {
     console.error("Erreur lors de la récupération du profil:", error);
     res.status(500).json({ error: "Erreur interne du serveur" });
   }
 };
-
 
 export const updateUserProfile = async (req: Request, res: Response) => {
   try {
@@ -312,7 +390,7 @@ export const updateUserProfile = async (req: Request, res: Response) => {
 export const assignRole = async (req: Request, res: Response) => {
   try {
     const userId = Number(req.params.id);
-    const { roleId } = req.body;
+    const roleId = Number(req.body.roleId);
 
     if (!roleId) {
       return res.status(400).json({ error: "roleId est requis" });
@@ -323,59 +401,38 @@ export const assignRole = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Rôle introuvable" });
     }
 
-    // Provide the required assignedBy field; prefer authenticated user email if available
     const assignedBy = (req as any).user?.email || "system";
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { roles: { create: { roleId, assignedBy } } },
-      include: { roles: true },
+    const userRole = await prisma.userRole.create({
+      data: { userId, roleId, assignedBy },
     });
 
-    return res.status(200).json({
-      message: "Rôle attribué avec succès",
-      user: updatedUser,
-    });
+    return ResponseApi.success(res, "Rôle attribué avec succès", 200, userRole);
   } catch (error: any) {
     console.error("Erreur assignation rôle:", error);
-    return res
-      .status(500)
-      .json({ error: "Erreur serveur lors de l’attribution du rôle" });
+    return res.status(500).json({ error: "Erreur serveur lors de l'attribution du rôle" });
   }
 };
 export const removeRole = async (req: Request, res: Response) => {
   try {
     const userId = Number(req.params.id);
-    const { roleId } = req.body;
+    const roleId = Number(req.body.roleId);
 
     if (!roleId) {
       return res.status(400).json({ error: "roleId est requis" });
     }
 
-    // Vérifie si l’association existe
-    const userRole = await prisma.userRole.findFirst({
-      where: { userId, roleId },
-    });
-
-    if (!userRole) {
-      return res.status(404).json({
-        error: "Ce rôle n’est pas attribué à cet utilisateur",
-      });
-    }
-
-    // Supprime l’association
     await prisma.userRole.delete({
-      where: { userId_roleId: userRole },
+      where: { userId_roleId: { userId, roleId } },
     });
 
-    return res.status(200).json({
-      message: "Rôle retiré avec succès à l’utilisateur",
-    });
+    return res.status(200).json({ message: "Rôle retiré avec succès à l'utilisateur" });
   } catch (error: any) {
+    if (error.code === "P2025") {
+      return res.status(404).json({ error: "Ce rôle n'est pas attribué à cet utilisateur" });
+    }
     console.error("Erreur suppression rôle:", error);
-    return res.status(500).json({
-      error: "Erreur serveur lors du retrait du rôle",
-    });
+    return res.status(500).json({ error: "Erreur serveur lors du retrait du rôle" });
   }
 };
 
