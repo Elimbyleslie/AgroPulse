@@ -126,19 +126,20 @@ export const getAllFarm = async (
       }
     }
 
-    // --- Fetch des données ---
+    const farmWhere = {
+      ...where,
+      organization: {
+        OR: [{ ownerId: userId }, { users: { some: { id: req.user?.id } } }],
+      },
+    };
+
     const farms = await prisma.farm.findMany({
       skip: offset,
       take: limit,
       orderBy: { createdAt: "desc" },
-      where: {
-        organization: {
-          ownerId: userId,
-        },
-      },
+      where: farmWhere,
     });
-
-    const totalItems = await prisma.farm.count({ where });
+    const totalItems = await prisma.farm.count({ where: farmWhere });
 
     // --- Calcul Pagination ---
     const totalPage = Math.ceil(totalItems / limit);

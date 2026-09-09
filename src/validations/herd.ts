@@ -5,4 +5,5 @@ export const herdSchema = yup.object({
   speciesId: yup.number().required("speciesId est obligatoire"),
   name: yup.string().required("Le nom du Herd est obligatoire"),
   photo: yup.string().optional(),
+  barnId: yup.number().required("barnId est obligatoire"),
 });

@@ -2,6 +2,20 @@ import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 
+
+async function assertFarmAccess(farmId: number, userId?: number) {
+  const farm = await prisma.farm.findFirst({
+    where: {
+      id: farmId,
+      organization: {
+        OR: [{ ownerId: userId }, { users: { some: { id: userId } } }],
+      },
+    },
+    select: { id: true },
+  });
+  return !!farm;
+}
+
 // CREATE — ajouter un user à une ferme
 export const createFarmUser = async (
   req: Request<{}, {}, { farmId: number; userId: number }>,
@@ -13,6 +27,11 @@ export const createFarmUser = async (
 
     if (!farmId || !userId) {
       return ResponseApi.error(res, "farmId et userId sont obligatoires", 400);
+    }
+
+    const hasAccess = await assertFarmAccess(Number(farmId), req.user?.id);
+    if (!hasAccess) {
+      return ResponseApi.error(res, "Accès non autorisé à cette ferme", 403);
     }
 
     const farmUser = await prisma.farmUser.create({
@@ -38,7 +57,7 @@ export const createFarmUser = async (
   }
 };
 
-// GET ALL — avec filtres farmId / userId + pagination
+// GET ALL — avec filtres farmId / userId + pagination, scope sur les fermes accessibles
 export const getAllFarmUsers = async (
   req: Request<
     {},
@@ -54,7 +73,16 @@ export const getAllFarmUsers = async (
     const limit = Number(req.query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = {
+      farm: {
+        organization: {
+          OR: [
+            { ownerId: req.user?.id },
+            { users: { some: { id: req.user?.id } } },
+          ],
+        },
+      },
+    };
     if (req.query.farmId) where.farmId = Number(req.query.farmId);
     if (req.query.userId) where.userId = Number(req.query.userId);
 
@@ -96,7 +124,7 @@ export const getAllFarmUsers = async (
   }
 };
 
-// GET BY ID
+// GET BY ID — ownership check
 export const getFarmUserById = async (
   req: Request<{ id: string }>,
   res: Response,
@@ -123,21 +151,33 @@ export const getFarmUserById = async (
       return ResponseApi.error(res, "Affiliation non trouvée", 404);
     }
 
+    const hasAccess = await assertFarmAccess(farmUser.farmId, req.user?.id);
+    if (!hasAccess) {
+      return ResponseApi.error(res, "Affiliation non trouvée", 404);
+    }
+
     return ResponseApi.success(res, "Affiliation récupérée", 200, farmUser);
   } catch (error) {
     next(error);
   }
 };
 
-// GET BY FARM — tous les membres d’une ferme
+// GET BY FARM — tous les membres d'une ferme, ownership check
 export const getFarmUsersByFarmId = async (
   req: Request<{ farmId: string }>,
   res: Response,
   next: NextFunction,
 ) => {
   try {
+    const farmId = Number(req.params.farmId);
+
+    const hasAccess = await assertFarmAccess(farmId, req.user?.id);
+    if (!hasAccess) {
+      return ResponseApi.error(res, "Accès non autorisé à cette ferme", 403);
+    }
+
     const items = await prisma.farmUser.findMany({
-      where: { farmId: Number(req.params.farmId) },
+      where: { farmId },
       include: {
         user: {
           select: {
@@ -159,16 +199,26 @@ export const getFarmUsersByFarmId = async (
   }
 };
 
-// DELETE — retirer un user d’une ferme
+// DELETE — retirer un user d'une ferme, ownership check
 export const deleteFarmUser = async (
   req: Request<{ id: string }>,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const deleted = await prisma.farmUser.delete({
-      where: { id: Number(req.params.id) },
-    });
+    const id = Number(req.params.id);
+
+    const existing = await prisma.farmUser.findUnique({ where: { id } });
+    if (!existing) {
+      return ResponseApi.error(res, "Affiliation non trouvée", 404);
+    }
+
+    const hasAccess = await assertFarmAccess(existing.farmId, req.user?.id);
+    if (!hasAccess) {
+      return ResponseApi.error(res, "Affiliation non trouvée", 404);
+    }
+
+    const deleted = await prisma.farmUser.delete({ where: { id } });
 
     return ResponseApi.success(res, "Utilisateur retiré de la ferme", 200, deleted);
   } catch (error: any) {

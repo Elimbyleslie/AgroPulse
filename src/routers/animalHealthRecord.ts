@@ -22,12 +22,15 @@ router.post(
   validator(createAnimalHealthRecordSchema),
   createAnimalHealthRecord,
 );
+
+//get all health records filtrer  par farmId ou  animalId
 router.get(
   "/",
   authenticate,
   authorizePermission([Permission.READ_HEALTH_RECORD]),
   getAllAnimalHealthRecords,
 );
+
 router.get(
   "/:id",
   authenticate,

@@ -35,4 +35,5 @@ export const updateStockMovementSchema = Yup.object().shape({
   quantity: Yup.number().transform(forceNumber).positive().optional(),
   reference: Yup.string().optional().nullable(),
   notes: Yup.string().optional().nullable(),
+  
 });

@@ -13,8 +13,7 @@ export interface RegisterUser {
   otp?: string;
   userRole: string;
   status: string;
-  defaultFarmId?: number;
-  defaultOrganizationId?: number;
+  invitationToken?: string; 
 }
 
 export interface AuthenticatedRequest extends Request {

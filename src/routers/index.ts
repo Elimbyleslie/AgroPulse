@@ -59,6 +59,7 @@ import permission from "./permission.js";
 import farmUser from "./farmUser.js";
 import activityLog from "./activityLog.js";
 import invitation from "./router.Invitation.js";
+import subcriptionPayment from "./subcriptionPayment.js";
 
 const router = {
   auth,
@@ -122,5 +123,6 @@ const router = {
   farmUser,
   activityLog,
   invitation,
+  subcriptionPayment
 };
 export default router;

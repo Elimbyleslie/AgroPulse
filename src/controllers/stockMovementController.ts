@@ -2,6 +2,9 @@ import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 
+import { Decimal } from "@prisma/client/runtime/library";
+
+
 const stockMovementInclude = {
   inventory: {
     select: {
@@ -52,7 +55,7 @@ export const createStockMovement = async (
           newQuantity -= Number(quantity);
           break;
         case "ADJUSTMENT":
-          newQuantity = Number(quantity); // Quantité absolue
+          newQuantity = Number(quantity);
           break;
       }
 
@@ -70,6 +73,8 @@ export const createStockMovement = async (
           reference: reference ?? null,
           notes: notes ?? null,
           userId: userId ? Number(userId) : null,
+          farmId,
+          
         },
         include: stockMovementInclude,
       });
@@ -137,39 +142,109 @@ export const getAllStockMovements = async (
 };
 
 // __UPDATE ___________________________________________________________________
+
+const MOVEMENT_SIGN: Record<string, 1 | -1> = {
+  PURCHASE: 1,
+  USAGE: -1,
+  ADJUSTMENT: 1,
+  TRANSFER: 1,
+  RETURN: 1,
+  WASTE: -1,
+};
+
 export const updateStockMovement = async (
   req: Request<{ id: string }>,
   res: Response,
   next: NextFunction
 ) => {
-    try {
-      const { id } = req.params;
-      const { inventoryId, type, quantity, reference, notes, userId } = req.body;
-  
-      const result = await prisma.stockMovement.update({
-        where: { id: Number(id) },
+  try {
+    const { id } = req.params;
+    const movementId = Number(id);
+    const { quantity, reference, notes, userId } = req.body;
+
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.stockMovement.findUnique({
+        where: { id: movementId },
+      });
+      if (!existing) {
+        throw new Error("Mouvement introuvable");
+      }
+
+      const sign = MOVEMENT_SIGN[existing.type] ?? 1;
+      const oldQuantity = Number(existing.quantity);
+      const newQuantityInput = quantity !== undefined ? Number(quantity) : oldQuantity;
+
+      if (newQuantityInput === oldQuantity) {
+        const updated = await tx.stockMovement.update({
+          where: { id: movementId },
+          data: {
+            reference: reference ?? null,
+            notes: notes ?? null,
+            ...(userId !== undefined ? { userId: userId ? Number(userId) : null } : {}),
+          },
+          include: stockMovementInclude,
+        });
+        return updated;
+      }
+
+      // 1. Récupérer l'état actuel de l'inventaire concerné
+      const item = await tx.inventory.findUnique({
+        where: { id: existing.inventoryId },
+      });
+      if (!item) {
+        throw new Error("Article d'inventaire introuvable");
+      }
+
+      const currentStock = Number(item.quantity);
+
+      // 2. Annuler l'effet de l'ancien mouvement, puis appliquer le nouveau
+      const stockBeforeThisMovement = currentStock - sign * oldQuantity;
+      const newStock = stockBeforeThisMovement + sign * newQuantityInput;
+
+      if (newStock < 0) {
+        throw new Error("Quantité insuffisante pour ce mouvement");
+      }
+
+      // 3. Mettre à jour le stock de l'article
+      await tx.inventory.update({
+        where: { id: existing.inventoryId },
         data: {
-          inventoryId: Number(inventoryId),
-          type,
-          quantity: Number(quantity),
+          quantity: new Decimal(newStock),
+          totalValue: item.unitPrice ? newStock * item.unitPrice : item.totalValue,
+          status: item.minQuantity && newStock <= Number(item.minQuantity)
+            ? "LOW_STOCK"
+            : item.status,
+        },
+      });
+
+      // 4. Mettre à jour le mouvement avec la nouvelle chaîne before/after cohérente
+      const updated = await tx.stockMovement.update({
+        where: { id: movementId },
+        data: {
+          quantity: new Decimal(newQuantityInput),
+          previousQuantity: new Decimal(stockBeforeThisMovement),
+          newQuantity: new Decimal(newStock),
           reference: reference ?? null,
           notes: notes ?? null,
-          userId: userId ? Number(userId) : null,
+          ...(userId !== undefined ? { userId: userId ? Number(userId) : null } : {}),
         },
         include: stockMovementInclude,
       });
-  
-      return ResponseApi.success(res, "Mouvement de stock mis à jour", 200, result);
-    } catch (error: any) {
-      if (error.message.includes("introuvable")) {
-        return ResponseApi.error(res, error.message, 404);
-      }
-      if (error.message === "Quantité insuffisante pour ce mouvement") {
-        return ResponseApi.error(res, error.message, 400);
-      }
-      next(error);
+
+      return updated;
+    });
+
+    return ResponseApi.success(res, "Mouvement de stock mis à jour", 200, result);
+  } catch (error: any) {
+    if (error.message?.includes("introuvable")) {
+      return ResponseApi.error(res, error.message, 404);
     }
-}
+    if (error.message === "Quantité insuffisante pour ce mouvement") {
+      return ResponseApi.error(res, error.message, 400);
+    }
+    next(error);
+  }
+};
 
 // ── GET BY ID ─────────────────────────────────────────────────────────────────
 export const getStockMovementById = async (

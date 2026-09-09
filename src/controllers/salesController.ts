@@ -1,15 +1,14 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
-import { Sale, SaleItem, SaleStatus, PaymentMethod,  } from "../typages/expenseSale.js";
-import {PaymentStatus } from "../typages/payment.js";
+import { Sale, SaleStatus} from "../typages/expenseSale.js";
 
 // ========================
 // CREATE SALE
 // ========================
 export const createSale = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { farmId, clientId, total, notes, paymentMethod = "cash", status = SaleStatus.COMPLETED } = req.body;
+    const { farmId, clientId, total, notes, paymentMethod = "cash", status = "COMPLETED"} = req.body;
     const user = req.user;
 
     const sale = await prisma.sale.create({
@@ -26,15 +25,15 @@ export const createSale = async (req: Request, res: Response, next: NextFunction
     });
 
     // Création automatique du Payment
-    if (status === SaleStatus.COMPLETED && total > 0) {
+    if (status === "COMPLETED" && total > 0) {
       await prisma.payment.create({
         data: {
           saleId: sale.id,
-          farmId,
+          farmId: Number(farmId),
           organizationId: user?.defaultOrganizationId,
           amount: total,
-          method: paymentMethod,
-          status: PaymentStatus.SUCCESS,
+          method: paymentMethod || "cash",
+          status: "SUCCESS" as any,
           reference: `SALE-${sale.id}`,
           userId: user?.id,
         },

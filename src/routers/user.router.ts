@@ -58,14 +58,14 @@ router.delete(
 router.post(
   "/:id/roles",
   authenticate,
-  authorizePermission([Permission.ASSIGN_ROLE]), // Crée une permission spéciale si besoin
+  authorizePermission([Permission.ASSIGN_ROLE]),
   assignRole,
 );
 
 router.delete(
   "/:id/roles",
   authenticate,
-  authorizePermission([Permission.REMOVE_ROLE]), // Crée une permission spéciale si besoin
+  authorizePermission([Permission.REMOVE_ROLE]),
   removeRole,
 );
 

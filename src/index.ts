@@ -74,6 +74,8 @@ app.get("/health", (req, res) => {
 app.use(passport.initialize());
 
 // Auth (public)
+app.use("/api", router.invitation); 
+
 app.use("/api/auth", router.auth);
 
 // =====================
@@ -93,11 +95,11 @@ app.use("/api/audit", router.audit);
 app.use("/api/APIKey", router.apiKeys);
 app.use("/api/users", router.user);
 app.use("/api/subscriptions", router.subscription);
+app.use("/api/subcription-Payments", router.subcriptionPayment)
 app.use("/api/clients", router.client);
 app.use("/api/settings", router.settings);
 app.use("/api/invoices", router.invoice);
 // app.ts / index.ts
-app.use("/api", router.invitation); 
 
 // =====================
 // Routes protégées par authentification et permission
@@ -108,7 +110,7 @@ app.use("/api/animals", router.animal);
 app.use("/api/births", router.birth);
 app.use("/api/  ", router.animalReproduction);
 app.use("/api/reproductions", router.reproductionBirth);
-app.use("/api/animal-health", router.AnimalHealthRecord);
+app.use("/api/animal-health-records", router.AnimalHealthRecord);
 app.use("/api/animal-treatments", router.AnimalTreatment);
 app.use("/api/animal-vaccinations", router.animaVaccination);
 app.use("/api/animal-deaths", router.animalDeath);

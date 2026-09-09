@@ -22,18 +22,23 @@ import { Permission } from "../helpers/permissions.js";
 
 const router = Router();
 
-router.get("/", getAllNotifications);
+router.get(
+  "/",
+  authenticate,
+  authorizePermission([Permission.READ_NOTIFICATION]),
+  getAllNotifications,
+);
+router.get(
+  "/unread-count",
+  authenticate,
+  authorizePermission([Permission.READ_NOTIFICATION]),
+  getUnreadCount,
+);
 router.get(
   "/:id",
   authenticate,
   authorizePermission([Permission.READ_NOTIFICATION]),
   getNotificationById,
-);
-router.get(
-  "/:userId/unread-count",
-  authenticate,
-  authorizePermission([Permission.READ_NOTIFICATION]),
-  getUnreadCount,
 );
 router.post(
   "/",
@@ -67,9 +72,8 @@ router.patch(
   authorizePermission([Permission.UPDATE_NOTIFICATION]),
   markNotificationAsUnread,
 );
-
 router.patch(
-  "/user/:userId/read-all",
+  "/read-all",
   authenticate,
   authorizePermission([Permission.UPDATE_NOTIFICATION]),
   markAllAsRead,

@@ -2,6 +2,9 @@ import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
 import { AnimalWeight } from "../typages/animalWeight.js";
+import {
+  HealthEventType,
+} from "../typages/animalHealthRecords.js";
 
 // CREATE
 export const createAnimalWeight = async (
@@ -11,6 +14,20 @@ export const createAnimalWeight = async (
 ) => {
   try {
     const weight = await prisma.animalWeight.create({ data: req.body });
+    //animal health record cree apres la reussite de la pesée
+    await prisma.animalHealthRecord.create({
+      data: {
+        eventType: HealthEventType.OTHER,
+        referenceType: "WEIGHT_RECORD",
+        referenceId: weight.id,
+        animalId: weight.animalId,
+        eventDate: weight.date,
+        endDate: weight.date,
+        title: "Poids enregistré : " + weight.weight + " kg",
+        recordedById: (req as any).user?.id ?? null,
+      },
+    });
+
     return ResponseApi.success(res, "Poids enregistré", 201, weight);
   } catch (error) {
     next(error);
@@ -100,6 +117,18 @@ export const updateAnimalWeight = async (
       where: { id: Number(id) },
       data: req.body,
     });
+
+    //mise a  jour de l'enregistrement de santé de l'animal
+    await prisma.animalHealthRecord.updateMany({
+      where: {
+        referenceType: "WEIGHT_RECORD",
+        referenceId: Number(id),
+      },
+      data: {
+        title: "Poids mis à jour : " + updated.weight + " kg",
+      },
+    }); 
+
     return ResponseApi.success(res, "Poids mis à jour", 200, updated);
   } catch (error: any) {
     if (error.code === "P2025")

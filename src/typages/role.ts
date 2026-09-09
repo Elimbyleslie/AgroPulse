@@ -1,12 +1,12 @@
 export enum Role {
-  SUPER_ADMIN = "super_admin",
-  ADMIN = "admin",
-  ORGANIZATION_OWNER = "organization_owner",
-  FARM_MANAGER = "farm_manager",
-  VETERINAIRE = "veterinaire",
-  EQUIPMENT_MANAGER = "equipement_manager",
-  FINANCE_MANAGER = "finance_manager",
-  FERMIER = "fermier",
+  SUPER_ADMIN = "SUPER_ADMIN",
+  ADMIN = "ADMIN",
+  ORGANIZATION_OWNER = "ORGANIZATION_OWNER",
+  FARM_MANAGER = "FARM_MANAGER",
+  VETERINAIRE = "VETERINAIRE",
+  EQUIPMENT_MANAGER = "EQUIPMENT_MANAGER",
+  FINANCE_MANAGER = "FINANCE_MANAGER ",
+  FERMIER = " FERMIER ",
 }
 
 export interface JwtPayload {

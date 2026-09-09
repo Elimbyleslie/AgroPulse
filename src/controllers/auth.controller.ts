@@ -9,6 +9,7 @@ import { sendMail } from "../services/mail.service.js";
 import { assignSuperAdminIfEligible } from "./AssignRole.js";
 import crypto from "crypto";
 import { date } from "yup";
+import { logAction } from "./audit.controller.js";
 
 //=====================Login=====================
 export const login = async (
@@ -54,28 +55,33 @@ export const login = async (
     if (!user) {
       return res
         .status(401)
-        .json(
-          Utilities.errorResponse(
-            401,
-            "Email ou mot de passe incorrect."
-          )
-        );
+        .json(Utilities.errorResponse(401, "Email ou mot de passe incorrect."));
     }
 
     // 2️⃣ Mise à jour de la dernière connexion + onboarding
     const updatedUser = await prisma.user.update({
-      where: { id: user.id },           // ← Utilise l'ID, pas l'email
+      where: { id: user.id }, // ← Utilise l'ID, pas l'email
       data: { lastConnexion: new Date() },
     });
 
     // Mise à jour du onboarding si nécessaire
+    // Mise à jour du onboarding si nécessaire
     if (!updatedUser.onboardingComplete) {
-      const hasFarms = user.ownedOrganizations.some((org) => org.farms.length > 0);
-      const hasAnimals = user.ownedOrganizations.some((org) =>
-        org.farms.some((farm) => farm.animals.length > 0)
+      // Cas owner : doit avoir créé au moins 1 ferme + 1 animal
+      const hasFarms = user.ownedOrganizations.some(
+        (org) => org.farms.length > 0,
       );
+      const hasAnimals = user.ownedOrganizations.some((org) =>
+        org.farms.some((farm) => farm.animals.length > 0),
+      );
+      const ownerOnboardingDone = hasFarms && hasAnimals;
 
-      if (hasFarms && hasAnimals) {
+      // Cas membre invité : rattaché via invitation,
+      const isInvitedMember =
+        user.defaultOrganizationId != null &&
+        user.ownedOrganizations.length === 0;
+
+      if (ownerOnboardingDone || isInvitedMember) {
         await prisma.user.update({
           where: { id: user.id },
           data: { onboardingComplete: true },
@@ -83,15 +89,15 @@ export const login = async (
       }
     }
 
-    // 🔐 Bloquer login local si compte Google
+    //  Bloquer login local si compte Google
     if (user.provider === "GOOGLE") {
       return res
         .status(400)
         .json(
           Utilities.errorResponse(
             400,
-            "Ce compte utilise la connexion Google. Veuillez vous connecter avec Google."
-          )
+            "Ce compte utilise la connexion Google. Veuillez vous connecter avec Google.",
+          ),
         );
     }
 
@@ -113,7 +119,7 @@ export const login = async (
         Utilities.errorResponse(403, "Email non vérifié.", {
           emailVerified: false,
           email: user.email,
-        })
+        }),
       );
     }
 
@@ -125,13 +131,13 @@ export const login = async (
     const accessToken = jwt.sign(
       { id_user: user.id, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: "1h" }
+      { expiresIn: "1h" },
     );
 
     const refreshToken = jwt.sign(
       { id_user: user.id },
       process.env.REFRESH_JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     res.cookie("refreshToken", refreshToken, {
@@ -155,6 +161,18 @@ export const login = async (
       })
       .filter(Boolean);
 
+    await logAction({
+      userId: user.id,
+      organizationId: user.defaultOrganizationId ?? null,
+      farmId: user.defaultFarmId ?? null,
+      tableTarget: "User",
+      action: "LOGIN",
+      recordId: user.id,
+      description: `Connexion réussie de ${user.name} (${user.email})`,
+      ipAddress: req.ip || req.headers["x-forwarded-for"]?.toString() || null,
+      userAgent: req.headers["user-agent"] || null,
+    });
+
     // 4️⃣ Réponse finale
     return res.status(200).json(
       Utilities.successReponse(200, "Connexion réussie", {
@@ -169,25 +187,34 @@ export const login = async (
           email: user.email,
           phone: user.phone,
           roles: userRoles,
-        
+          onboardingComplete: updatedUser.onboardingComplete,
+          defaultOrganizationId: user.defaultOrganizationId,
+          defaultFarmId: user.defaultFarmId,
+          memberOrganizations: user.memberOrganizations,
+          ownedOrganizations: user.ownedOrganizations,
         },
-      })
+      }),
     );
   } catch (error: any) {
     console.error("Login Error:", error);
 
     // Gestion spécifique Prisma P2025
     if (error.code === "P2025") {
-      return res.status(404).json(
-        Utilities.errorResponse(404, "Utilisateur introuvable ou impossible à mettre à jour.")
-      );
+      return res
+        .status(404)
+        .json(
+          Utilities.errorResponse(
+            404,
+            "Utilisateur introuvable ou impossible à mettre à jour.",
+          ),
+        );
     }
 
     // Autres erreurs Prisma
     if (error.code && error.code.startsWith("P")) {
-      return res.status(500).json(
-        Utilities.errorResponse(500, "Erreur de base de données.")
-      );
+      return res
+        .status(500)
+        .json(Utilities.errorResponse(500, "Erreur de base de données."));
     }
 
     // Erreur inconnue → laisser le middleware global gérer
@@ -223,7 +250,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       { expiresIn: "1h" },
     );
 
-    //mettre a jour le token du user en Bd 
+    //mettre a jour le token du user en Bd
     await prisma.user.update({
       where: { id: user.id },
       data: { refreshToken: token },
@@ -243,7 +270,7 @@ export const refreshToken = async (req: Request, res: Response) => {
 
 /** REGISTER */
 export const register = async (
-  req: Request<any, any, RegisterUser & { invitationToken?: string }>,
+  req: Request<any, any, RegisterUser>,
   res: Response,
   next: NextFunction,
 ) => {
@@ -254,29 +281,55 @@ export const register = async (
       where: { email: data.email, userName: data.userName, phone: data.phone },
     });
     if (existingUser) {
-      return res.status(409).json(
-        Utilities.errorResponse(409, "Email ou userName existant ou numero deja enregistré."),
-      );
+      return res
+        .status(409)
+        .json(
+          Utilities.errorResponse(
+            409,
+            "Email ou userName existant ou numero deja enregistré.",
+          ),
+        );
     }
 
     if (data.password !== data.passwordConfirmation) {
-      return res.status(400).json(
-        Utilities.errorResponse(400, "Les mots de passe ne correspondent pas."),
-      );
+      return res
+        .status(400)
+        .json(
+          Utilities.errorResponse(
+            400,
+            "Les mots de passe ne correspondent pas.",
+          ),
+        );
     }
 
-    // 🔗 Résoudre l'invitation si un token est fourni
+    // Résoudre l'invitation si un token est fourni
     let invitation = null;
     if (data.invitationToken) {
-      invitation = await prisma.invitation.findUnique({ where: { token: data.invitationToken } });
+      invitation = await prisma.invitation.findUnique({
+        where: { token: data.invitationToken },
+      });
       if (!invitation) {
-        return res.status(400).json(Utilities.errorResponse(400, "Lien d'invitation invalide."));
+        return res
+          .status(400)
+          .json(Utilities.errorResponse(400, "Lien d'invitation invalide."));
       }
       if (invitation.expiresAt && invitation.expiresAt < new Date()) {
-        return res.status(410).json(Utilities.errorResponse(410, "Ce lien d'invitation a expiré."));
+        return res
+          .status(410)
+          .json(Utilities.errorResponse(410, "Ce lien d'invitation a expiré."));
       }
-      if (invitation.maxUses !== null && invitation.usedCount >= invitation.maxUses) {
-        return res.status(410).json(Utilities.errorResponse(410, "Ce lien d'invitation a déjà été utilisé."));
+      if (
+        invitation.maxUses !== null &&
+        invitation.usedCount >= invitation.maxUses
+      ) {
+        return res
+          .status(410)
+          .json(
+            Utilities.errorResponse(
+              410,
+              "Ce lien d'invitation a déjà été utilisé.",
+            ),
+          );
       }
     }
 
@@ -284,42 +337,69 @@ export const register = async (
 
     let profilePhoto = "/uploads/default_profile.png";
     if (req.files?.photo) {
-      profilePhoto = await Utilities.saveFile(req.files.photo as any, "uploads/profiles");
+      profilePhoto = await Utilities.saveFile(
+        req.files.photo as any,
+        "uploads/profiles",
+      );
       profilePhoto = Utilities.resolveFileUrl(req, profilePhoto);
     }
 
-    const user = await prisma.user.create({
-      data: {
-        name: data.name,
-        userName: data.userName,
-        email: data.email,
-        password: hashedPassword,
-        phone: data.phone,
-        photo: profilePhoto,
-        provider: "LOCAL",
-        emailVerified: false,
-        status: "active",
-        onboardingComplete: false,
-        // 🔗 Affiliation via invitation
-        ...(invitation && {
-          defaultOrganizationId: invitation.organizationId,
-          defaultFarmId: invitation.farmId ?? undefined,
-          invitationId: invitation.id,
-          memberOrganizations: { connect: { id: invitation.organizationId } },
-          roles: invitation.roleId
-            ? { create: { roleId: invitation.roleId, assignedBy: "invitation" } }
-            : undefined,
-        }),
-      },
-    });
-
-    // Incrémenter le compteur d'usage
-    if (invitation) {
-      await prisma.invitation.update({
-        where: { id: invitation.id },
-        data: { usedCount: { increment: 1 } },
+    const { user, farmUser } = await prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          name: data.name,
+          userName: data.userName,
+          email: data.email,
+          password: hashedPassword,
+          phone: data.phone,
+          photo: profilePhoto,
+          provider: "LOCAL",
+          emailVerified: false,
+          status: "active",
+          onboardingComplete: !!invitation,
+          invitationToken: data.invitationToken,
+          ...(invitation && {
+            defaultOrganizationId: invitation.organizationId,
+            defaultFarmId: invitation.farmId,
+            invitationId: invitation.id,
+            memberOrganizations: { connect: { id: invitation.organizationId } },
+            roles: invitation.roleId
+              ? {
+                  create: {
+                    roleId: invitation.roleId,
+                    assignedBy: "invitation",
+                  },
+                }
+              : undefined,
+          }),
+        },
       });
-    }
+
+      let newFarmUser = null;
+      if (invitation) {
+        newFarmUser = await tx.farmUser.create({
+          data: { farmId: invitation.farmId!, userId: newUser.id },
+        });
+
+        await tx.invitation.update({
+          where: { id: invitation.id },
+          data: {
+            usedCount: { increment: 1 },
+            users: { connect: { id: newUser.id } }, // relation "UsedInvitation" — sinon jamais peuplée
+          },
+        });
+
+        await tx.notification.create({
+          data: {
+            userId: invitation.createdBy,
+            title: "Nouveau membre",
+            message: `${newUser.name} a rejoint la ferme`,
+          },
+        });
+      }
+
+      return { user: newUser, farmUser: newFarmUser };
+    });
 
     const tempToken = jwt.sign(
       { id_user: user.id, scope: "verify-email" },
@@ -337,10 +417,14 @@ export const register = async (
     };
 
     return res.status(201).json(
-      Utilities.successReponse(201, "Compte créé avec succès. Vérifiez votre email.", {
-        user: safeUser,
-        token: tempToken,
-      }),
+      Utilities.successReponse(
+        201,
+        "Compte créé avec succès. Vérifiez votre email.",
+        {
+          user: safeUser,
+          token: tempToken,
+        },
+      ),
     );
   } catch (error) {
     next(error);
@@ -506,11 +590,26 @@ export const resetPassword = async (
 /** LOGOUT */
 export const logout = async (req: Request, res: Response) => {
   try {
+    const userId = (req as any).user?.id || (req as any).user?.id_user;
+
+     if (userId) {
+      await logAction({
+        userId,
+        tableTarget: "User",
+        action: "LOGOUT",
+        recordId: userId,
+        description: "Déconnexion de l'utilisateur",
+        ipAddress: req.ip || req.headers["x-forwarded-for"]?.toString() || null,
+        userAgent: req.headers["user-agent"] || null,
+      });
+    }
     res.clearCookie("refreshToken", {
       httpOnly: true,
       secure: true, // ⚠ mettre false en local sans HTTPS
       sameSite: "strict",
     });
+
+   
 
     return res.status(200).json({
       success: true,
@@ -823,7 +922,7 @@ export const changePassword = async (
 
 export const getMe = async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id; // Récupéré par ton middleware protect/auth
+    const userId = req.user?.id;
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -834,27 +933,13 @@ export const getMe = async (req: Request, res: Response) => {
         userName: true,
         photo: true,
         defaultFarmId: true,
-        // ✅ On récupère les rôles système
-        roles: {
-          include: {
-            role: true,
-          },
-        },
-        // ✅ On récupère les organisations dont il est membre
+        defaultOrganizationId: true,
+        roles: { include: { role: true } },
         memberOrganizations: {
-          select: {
-            id: true,
-            name: true,
-            ownerId: true,
-          },
+          select: { id: true, name: true, ownerId: true },
         },
-        // ✅ On récupère aussi celles qu'il possède
-        ownedOrganizations: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
+        ownedOrganizations: { select: { id: true, name: true } },
+        onboardingComplete: true,
       },
     });
 
@@ -862,10 +947,9 @@ export const getMe = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Utilisateur non trouvé" });
     }
 
-    // On aplatit un peu la structure pour le frontend
     const formattedUser = {
       ...user,
-      roles: user.roles.map((r) => r.role.name), // ["ORGANIZATION_OWNER", "USER"]
+      roles: user.roles.map((r) => r.role.name),
     };
 
     res.status(200).json({ data: formattedUser });

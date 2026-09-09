@@ -7,7 +7,6 @@ import {
 } from "../controllers/ActivityLogController.js";
 import { authenticate, authorizePermission } from "../middlewares/auth.js";
 import { Permission } from "../helpers/permissions.js";
-import { validator } from "../middlewares/validator.middleware.js";
 import { Router } from "express";
 
 const router = Router();

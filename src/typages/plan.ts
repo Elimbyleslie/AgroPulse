@@ -1,23 +1,22 @@
-export enum BillingCycle {
-  MONTHLY = "MONTHLY",
-  YEARLY = "YEARLY",
-} 
+import { Subscription } from "./subscription";
 
-export enum UnitStorage {
-  MO = "MO",
-  GO = "GO",
-  TO = "TO",
-}
 export interface Plan {
   id: number;
   name: string;
-  price: number;
-  durationDays: number;
-  description: string;
-  billingCycle: BillingCycle;
-  userLimit: number;
-  storageLimit: number;
-  farmLimit: number;  
-  animalLimit: number;
-  unitStorage: UnitStorage;
+  code: string;
+  description?: string | null;
+  priceMonthly: number;
+  priceYearly?: number | null;
+  currency: string;
+  maxFarms?: number | null;
+  maxUsers?: number | null;
+  maxAnimals?: number | null;
+  features?: Record<string, unknown> | null;
+  isActive: boolean;
+  isPublic: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+
+  subscriptions?: Subscription[];
 }

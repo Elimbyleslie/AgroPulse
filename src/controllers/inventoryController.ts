@@ -1,24 +1,29 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../models/prismaClient.js";
 import ResponseApi from "../helpers/response.js";
-import { Inventory, InventoryCategory } from "../typages/inventory.js"; // Adaptez le chemin
+import { Inventory, InventoryCategory } from "../typages/inventory.js";
 
 // CREATE - Ajout d'un nouvel article en stock
 export const createInventory = async (
   req: Request<{}, {}, Inventory>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
+    const { status, ...safeBody } = req.body as any;
     const inventory = await prisma.inventory.create({
-      data: req.body,
+      data: safeBody,
       include: {
         farm: { select: { id: true, name: true } },
         supplier: { select: { id: true, name: true } },
       },
     });
-
-    return ResponseApi.success(res, "Article ajouté au stock avec succès", 201, inventory);
+    return ResponseApi.success(
+      res,
+      "Article ajouté au stock avec succès",
+      201,
+      inventory,
+    );
   } catch (error) {
     next(error);
   }
@@ -43,7 +48,7 @@ export const getAllInventory = async (
     }
   >,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const {
@@ -97,7 +102,8 @@ export const getAllInventory = async (
       });
 
       const lowStockItems = allItems.filter(
-        (item) => item.minQuantity !== null && item.quantity <= item.minQuantity
+        (item) =>
+          item.minQuantity !== null && item.quantity <= item.minQuantity,
       );
 
       totalItems = lowStockItems.length;
@@ -137,7 +143,7 @@ export const getAllInventory = async (
 export const getInventoryById = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const item = await prisma.inventory.findUnique({
@@ -169,9 +175,11 @@ export const updateInventory = async (
   next: NextFunction
 ) => {
   try {
+    const { status, ...safeBody } = req.body as any; 
+
     const updated = await prisma.inventory.update({
       where: { id: Number(req.params.id) },
-      data: req.body,
+      data: safeBody,
       include: {
         farm: true,
         supplier: true,
@@ -191,7 +199,7 @@ export const updateInventory = async (
 export const deleteInventory = async (
   req: Request<{ id: string }>,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const deleted = await prisma.inventory.delete({

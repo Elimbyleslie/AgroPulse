@@ -1,5 +1,5 @@
 import * as yup from "yup";
-import { InventoryCategory, StockStatus } from "../typages/inventory.js"; // Ajuste le chemin
+import { InventoryCategory } from "../typages/inventory.js"; // Ajuste le chemin
 
 // ====================== CREATE ======================
 export const createInventorySchema = yup.object({
@@ -65,10 +65,7 @@ export const createInventorySchema = yup.object({
     .max(50, "Le SKU est trop long")
     .nullable(),
 
-  status: yup
-    .mixed<StockStatus>()
-    .oneOf(Object.values(StockStatus), "Statut invalide")
-    .default(StockStatus.IN_STOCK),
+
 });
 
 // ====================== UPDATE ======================
@@ -137,8 +134,5 @@ export const updateInventorySchema = yup.object({
     .nullable()
     .optional(),
 
-  status: yup
-    .mixed<StockStatus>()
-    .oneOf(Object.values(StockStatus))
-    .optional(),
+
 });

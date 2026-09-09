@@ -6,4 +6,10 @@ export interface AnimalVaccination {
   dateGiven?: Date;
   nextDue?: Date;
   administeredBy?: number;
+  inventoryId:number;
+  quantityUsed:number;
+  farmId:number;
+  vaccinated?:boolean,
+  lastConfirmedAt?: Date
 }
+

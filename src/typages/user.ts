@@ -10,3 +10,13 @@ export interface User {
   defaultFarmId?: number;
   defaultOrganizationId?: number;
 }
+
+export enum AuthProvider {
+  LOCAL = "LOCAL",
+  GOOGLE = "GOOGLE",
+}
+
+export enum UserStatus {
+  active = "active",
+  inactive = "inactive",
+}

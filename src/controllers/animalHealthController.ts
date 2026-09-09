@@ -8,7 +8,7 @@ import { triggerAlertForSickAnimal } from "../services/alert.js";
 // CREATE Health Record
 // ======================================================
 export const createAnimalHealthRecord = async (
-  req: Request<{}, {}, AnimalHealthRecord & { farmId: number }>, // On s'attend à recevoir farmId
+  req: Request<{}, {}, AnimalHealthRecord & { farmId: number }>,
   res: Response,
   next: NextFunction,
 ) => {
@@ -76,7 +76,7 @@ export const getAllAnimalHealthRecords = async (
         skip: offset,
         take: limit,
         where,
-        orderBy: { checkDate: "desc" },
+        orderBy: { createdAt: "desc" },
         include: { 
           animal: { select: { name: true, species: true } }, 
           lot: { select: { name: true } }, 

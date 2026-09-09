@@ -13,6 +13,7 @@ export interface Notification {
   message: string;
   read: boolean;
   createdAt?: string | Date;
+  farmTask? : number;
 }
 
 export  interface ActivityLog {
